@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "assetLicense": "MIT",
+  "licenseNotice": "These packaged atlas files are contributed by CoPets contributors and distributed under the repository MIT License.",
+  "generation": {
+    "method": "built-in image generation",
+    "runStartedAt": "2026-07-20T16:49:35.501107Z",
+    "mirroredStates": [
+      "running-left"
+    ],
+    "nativeAtlas": {
+      "method": "scripts/build_native_atlas.py from generated high-resolution row strips",
+      "scale": 2,
+      "upscalingAllowed": false
+    },
+    "fallbackAtlas": {
+      "method": "downsample of the completed native atlas",
+      "scale": 1
+    }
+  },
+  "files": {
+    "spritesheet-native-2x.webp": {
+      "width": 3072,
+      "height": 3744,
+      "sha256": "6e4047dda03ca9fd585f44269bfe2b93beb65299ee46b51f53f71e05a3f76330"
+    },
+    "spritesheet.webp": {
+      "width": 1536,
+      "height": 1872,
+      "sha256": "edc4425cacfe35789f6f079709ba654ad94d2375789f99d696372dd3485554d7"
+    }
+  },
+  "privacy": "Generation prompts, working strips, and local paths are intentionally excluded."
+}

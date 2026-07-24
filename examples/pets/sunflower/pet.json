@@ -1,0 +1,8 @@
+{
+  "id": "sunflower",
+  "displayName": "Sunflower",
+  "description": "A springy sunflower companion with rubber-hose charm.",
+  "spriteVersionNumber": 1,
+  "spritesheetPath": "spritesheet.webp",
+  "sidecarSpritesheetPath": "spritesheet-native-2x.webp"
+}

@@ -1,0 +1,16 @@
+node_modules/
+dist/
+src-tauri/target/
+.claude-bridge/
+.impeccable/
+tmp/
+**/__pycache__/
+*.py[cod]
+
+# Local generation and exploratory design work. Curated production assets live
+# under src-tauri/icons/ or the documented pet-package fixtures.
+artifacts/
+design/
+
+.DS_Store
+*.log

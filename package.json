@@ -1,0 +1,45 @@
+{
+  "name": "copets",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "A local-first desktop companion for an already-running Codex App",
+  "scripts": {
+    "start": "node src/cli.mjs",
+    "probe:ipc": "node src/cli.mjs --ipc-only",
+    "probe:sessions": "node src/cli.mjs --sessions-only",
+    "probe:logs": "node src/cli.mjs --logs-only",
+    "frontend:dev": "vite --config vite.config.js",
+    "frontend:build": "vite build --config vite.config.js",
+    "tauri": "tauri",
+    "codesign:setup": "bash scripts/setup_local_codesign.sh",
+    "build:macos:signed": "bash scripts/build_macos_signed.sh",
+    "package:macos:dmg": "bash scripts/package_macos_dmg.sh",
+    "test:macos-installer": "bash scripts/test_macos_installer.sh",
+    "docs:check": "node scripts/check-docs.mjs",
+    "audit:public": "node scripts/check-public-tree.mjs",
+    "test:atlas": "python3 -m unittest discover -s test -p 'test_*.py'",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --locked",
+    "test": "node --test && npm run frontend:build",
+    "check": "npm test && npm run docs:check && npm run audit:public && cargo check --manifest-path src-tauri/Cargo.toml --locked",
+    "check:all": "npm run check && cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && npm run test:rust && npm run test:atlas"
+  },
+  "dependencies": {
+    "@lucide/svelte": "^1.25.0",
+    "@tauri-apps/api": "2.11.1",
+    "@tauri-apps/plugin-dialog": "2.7.2",
+    "micromark": "^4.0.2",
+    "micromark-extension-gfm": "^3.0.0",
+    "pixi.js": "8.19.0",
+    "svelte": "5.56.6"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "7.2.0",
+    "@tauri-apps/cli": "2.11.4",
+    "vite": "8.1.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
