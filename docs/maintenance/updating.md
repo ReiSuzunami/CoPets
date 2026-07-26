@@ -83,6 +83,11 @@ codesign --verify --deep --strict "src-tauri/target/release/bundle/macos/CoPets.
 
 Use a running Codex App and cover at least: selected working task, background working task, switch away and back to a retained task, terminal transition, IPC disconnect/reconnect, stale-owner follow refresh (including a same-owner reissued state snapshot when supported), and an explicit control when the change touches those paths. Record sanitized evidence; never commit live conversation content.
 
+For a CDP launch or restart-handoff change, also run the CDP contract's C0a/C0r cold-launch gate:
+prove the rediscovered official PID/listener boundary and, if a relevant macOS permission prompt
+appears, record its displayed app name as an observation. Do not infer that label from process ancestry
+or claim a result when no prompt was exercised.
+
 For installer, bundle, icon, or DMG changes, also run:
 
 ```bash

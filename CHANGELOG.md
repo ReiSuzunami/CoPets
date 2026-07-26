@@ -6,6 +6,12 @@ The current public testing prerelease is `v0.2.0`. It is development-signed and 
 
 ## Unreleased
 
+- Changed experimental **Launch Codex** and **Restart Codex with bridge** to ask macOS Launch
+  Services to open the official App instead of retaining a direct Codex child process. CoPets now
+  rediscovers and monitors the exact same-user official PID before accepting its loopback listener.
+  This avoids treating a launcher helper as Codex, but does not promise how a future macOS permission
+  alert will be labelled; that remains a product-path observation.
+
 ## [0.2.0] - 2026-07-26
 
 - Added **Restart Codex with bridge** to the compact experimental Settings disclosure. It requires a

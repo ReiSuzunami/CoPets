@@ -1,8 +1,8 @@
 # ADR 0007: User-confirmed restart into the CDP bridge
 
-> Status: Accepted
-> Owns: Settings-only graceful restart of one normal official Codex App into CoPets-managed loopback CDP mode
-> Update when: Restart target selection, confirmation, termination, launch handoff, or recovery semantics change
+> Status: Superseded in part by ADR 0008
+> Owns: Historical Settings-only graceful restart of one normal official Codex App into CoPets-managed loopback CDP mode
+> Update when: The historical record needs correction or a later ADR changes its remaining scope
 > Last verified: 2026-07-26
 
 ## Context
@@ -51,6 +51,13 @@ restart eligibility, immediate pre-signal revalidation, the sole graceful signal
 exit observation. `RuntimeHandle` continues to own only a tracked bridge endpoint after the new
 process is launched; no process data crosses into `ControlSnapshot`.
 
+## Supersession
+
+ADR 0008 supersedes only the replacement launch handoff: after the graceful close, CoPets now uses
+macOS Launch Services plus native PID rediscovery rather than the prior direct child launch. The
+confirmation, one-process selection, graceful-signal, bounded-wait, and no-force-kill decisions
+remain unchanged.
+
 ## Alternatives
 
 - **Keep manual quit only.** Safest baseline, retained as the normal Launch Codex path, but adds an
@@ -90,4 +97,5 @@ and no-private-owner-resume limits remain unchanged.
 - [CDP follow-up channel](../architecture/cdp-follow-up-channel.md)
 - [ADR 0005](0005-cdp-rf-control-channel.md)
 - [ADR 0006](0006-explicit-existing-cdp-attach.md)
+- [ADR 0008](0008-launch-services-cdp-handoff.md)
 - [Existing CDP attachment evidence](../research/codex-existing-cdp-attach-live-2026-07-26.md)

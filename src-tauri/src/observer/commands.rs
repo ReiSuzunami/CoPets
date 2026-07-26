@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    future::Future,
-    sync::mpsc::{self, TryRecvError},
-    time::Duration,
-};
+use std::{collections::HashMap, future::Future, time::Duration};
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -11,9 +6,10 @@ use tauri::{AppHandle, Emitter};
 use tokio::time::{Instant, sleep, timeout};
 
 use crate::cdp::{
-    CdpEndpoint, CdpEndpointOrigin, ControlTransport, discover_existing_codex, launch_codex,
+    CdpEndpoint, ControlTransport, discover_existing_codex, discover_launched_codex, launch_codex,
     official_codex_process_is_running, request_codex_restart, reserve_port,
     restartable_codex_process, running_codex_process, verify_tracked_listener,
+    verify_tracked_process,
 };
 use crate::control::{
     ControlSnapshot, ControlTarget, build_cdp_ready_params, build_cdp_steer_params,
@@ -180,7 +176,7 @@ async fn verify_cdp_until_ready(deadline: Instant, endpoint: CdpEndpoint) -> boo
     .await
 }
 
-fn track_cdp_endpoint(app: &AppHandle, runtime: &RuntimeHandle, endpoint: CdpEndpoint) -> u128 {
+fn track_cdp_endpoint(app: &AppHandle, runtime: &RuntimeHandle, endpoint: CdpEndpoint) {
     let liveness_token = runtime.arm_cdp_process_liveness(endpoint.process_id);
     runtime.remember_cdp_endpoint(endpoint);
     super::set_control_transport(
@@ -190,18 +186,30 @@ fn track_cdp_endpoint(app: &AppHandle, runtime: &RuntimeHandle, endpoint: CdpEnd
         None,
         Some(endpoint.process_id),
     );
-    liveness_token
+    monitor_tracked_cdp_process(app.clone(), runtime.clone(), endpoint, liveness_token);
 }
 
-fn monitor_user_attached_cdp_endpoint(
+fn monitor_tracked_cdp_process(
     app: AppHandle,
     runtime: RuntimeHandle,
     endpoint: CdpEndpoint,
     liveness_token: u128,
 ) {
-    if endpoint.origin != CdpEndpointOrigin::UserAttached {
+    tauri::async_runtime::spawn(async move {
+        loop {
+            sleep(Duration::from_secs(1)).await;
+            if verify_tracked_process(endpoint).await.is_err() {
+                super::clear_cdp_process(&app, &runtime, endpoint, liveness_token);
+                return;
+            }
+        }
+    });
+}
+
+fn monitor_verified_cdp_endpoint(app: AppHandle, runtime: RuntimeHandle, endpoint: CdpEndpoint) {
+    let Some(liveness_token) = runtime.cdp_liveness_token_for_endpoint(endpoint) else {
         return;
-    }
+    };
     tauri::async_runtime::spawn(async move {
         loop {
             sleep(Duration::from_secs(1)).await;
@@ -211,17 +219,6 @@ fn monitor_user_attached_cdp_endpoint(
             }
         }
     });
-}
-
-fn monitor_verified_user_attached_cdp_endpoint(
-    app: AppHandle,
-    runtime: RuntimeHandle,
-    endpoint: CdpEndpoint,
-) {
-    let Some(liveness_token) = runtime.cdp_liveness_token_for_endpoint(endpoint) else {
-        return;
-    };
-    monitor_user_attached_cdp_endpoint(app, runtime, endpoint, liveness_token);
 }
 
 fn reserve_follow_up_inflight(state: &mut RuntimeState, thread: &str) -> Result<u64, String> {
@@ -303,21 +300,31 @@ async fn launch_codex_bridge(
     custom_port: Option<u16>,
 ) -> Result<CdpLaunchResult, String> {
     let port = reserve_port(custom_port)?;
-    let mut launched = launch_codex(port)?;
-    let endpoint = CdpEndpoint::launched(launched.pid, port);
-    let liveness_token = track_cdp_endpoint(app, runtime, endpoint);
-    let (exited_sender, exited_receiver) = mpsc::sync_channel(1);
-    let exit_app = app.clone();
-    let exit_runtime = runtime.clone();
-    std::thread::spawn(move || {
-        let _ = launched.child.wait();
-        let _ = exited_sender.send(());
-        super::clear_cdp_process(&exit_app, &exit_runtime, endpoint, liveness_token);
-    });
-
     let deadline = Instant::now() + CDP_LAUNCH_TIMEOUT;
+    launch_codex(port)?;
+    let endpoint = loop {
+        if Instant::now() >= deadline {
+            return Err(
+                "CoPets could not verify Codex bridge. Standard IPC controls remain available."
+                    .to_owned(),
+            );
+        }
+        if let Ok(endpoint) = discover_launched_codex(port, deadline).await {
+            break endpoint;
+        }
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(
+                "CoPets could not verify Codex bridge. Standard IPC controls remain available."
+                    .to_owned(),
+            );
+        }
+        sleep(CDP_LAUNCH_POLL.min(remaining)).await;
+    };
+    track_cdp_endpoint(app, runtime, endpoint);
+
     loop {
-        if !matches!(exited_receiver.try_recv(), Err(TryRecvError::Empty)) {
+        if !runtime.has_tracked_cdp_endpoint() {
             return Err(
                 "CoPets could not verify Codex bridge. Standard IPC controls remain available."
                     .to_owned(),
@@ -339,6 +346,7 @@ async fn launch_codex_bridge(
         if verify_cdp_within_deadline(deadline, endpoint).await
             && super::set_cdp_ready(app, runtime, endpoint)
         {
+            monitor_verified_cdp_endpoint(app.clone(), runtime.clone(), endpoint);
             return Ok(CdpLaunchResult {
                 transport: ControlTransport::CdpReady,
             });
@@ -386,8 +394,9 @@ async fn wait_for_codex_exit(process_id: u32) -> Result<(), String> {
 }
 
 /// Restarts one explicitly confirmed normal Codex App through the existing
-/// loopback-only bridge launcher. It never force-kills the App or restarts one
-/// that already exposes CDP; all target selection remains native-only.
+/// Launch Services loopback-only bridge handoff. It never force-kills the App
+/// or restarts one that already exposes CDP; all target selection remains
+/// native-only.
 #[tauri::command]
 pub async fn restart_codex_with_cdp(
     app: AppHandle,
@@ -439,7 +448,7 @@ pub async fn connect_existing_codex_cdp(
                 .to_owned(),
         );
     }
-    monitor_verified_user_attached_cdp_endpoint(app.clone(), runtime.inner().clone(), endpoint);
+    monitor_verified_cdp_endpoint(app.clone(), runtime.inner().clone(), endpoint);
     Ok(CdpLaunchResult {
         transport: ControlTransport::CdpReady,
     })
@@ -457,7 +466,7 @@ pub async fn retry_cdp_bridge(
     if !verified {
         return Err(CDP_RETRY_FAILURE_MESSAGE.to_owned());
     }
-    monitor_verified_user_attached_cdp_endpoint(app.clone(), runtime.inner().clone(), endpoint);
+    monitor_verified_cdp_endpoint(app.clone(), runtime.inner().clone(), endpoint);
     Ok(CdpLaunchResult {
         transport: ControlTransport::CdpReady,
     })

@@ -14,7 +14,7 @@ use std::time::Duration;
 use tokio::time::{Instant, timeout};
 
 pub(crate) use launch::{
-    CdpEndpoint, CdpEndpointOrigin, launch_codex, official_codex_process_is_running,
+    CdpEndpoint, codex_process_matches_port, launch_codex, official_codex_process_is_running,
     request_codex_restart, reserve_port, restartable_codex_process, running_codex_process,
 };
 
@@ -43,6 +43,18 @@ pub(crate) async fn verify_tracked_listener(endpoint: CdpEndpoint) -> Result<(),
     .map_err(|_| "CoPets could not verify ownership of the local Codex bridge.".to_owned())?
 }
 
+pub(crate) async fn verify_tracked_process(endpoint: CdpEndpoint) -> Result<(), String> {
+    timeout(
+        Duration::from_secs(3),
+        tokio::task::spawn_blocking(move || {
+            codex_process_matches_port(endpoint.process_id, endpoint.port)
+        }),
+    )
+    .await
+    .map_err(|_| "CoPets could not verify the tracked Codex process.".to_owned())?
+    .map_err(|_| "CoPets could not verify the tracked Codex process.".to_owned())?
+}
+
 pub(crate) async fn discover_existing_codex(port: Option<u16>) -> Result<CdpEndpoint, String> {
     timeout(
         Duration::from_secs(3),
@@ -51,6 +63,23 @@ pub(crate) async fn discover_existing_codex(port: Option<u16>) -> Result<CdpEndp
     .await
     .map_err(|_| "CoPets could not inspect the local Codex CDP port. Retry.".to_owned())?
     .map_err(|_| "CoPets could not inspect the local Codex CDP port. Retry.".to_owned())?
+}
+
+pub(crate) async fn discover_launched_codex(
+    port: u16,
+    deadline: Instant,
+) -> Result<CdpEndpoint, String> {
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return Err("CoPets could not discover the launched Codex process.".to_owned());
+    }
+    timeout(
+        remaining,
+        tokio::task::spawn_blocking(move || launch::discover_launched_codex(port)),
+    )
+    .await
+    .map_err(|_| "CoPets could not discover the launched Codex process.".to_owned())?
+    .map_err(|_| "CoPets could not discover the launched Codex process.".to_owned())?
 }
 
 pub(crate) async fn call_rf(port: u16, operation: &str, params: Value) -> Result<(), String> {

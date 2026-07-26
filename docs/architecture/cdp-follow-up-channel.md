@@ -1,8 +1,8 @@
 # CDP follow-up channel (dual-channel control)
 
 > Status: Normative
-> Owns: Opt-in CDP launch, user-confirmed normal-App restart, or explicit local attachment; Ready follow-up and active-turn steer via in-renderer Pets `Rf`, session-field inheritance rules, trust boundary, and acceptance gates
-> Update when: Channel eligibility, endpoint contract, Rf fingerprint, envelopes, field inheritance, or acceptance evidence changes
+> Owns: Opt-in CDP Launch Services handoff, user-confirmed normal-App restart, or explicit local attachment; Ready follow-up and active-turn steer via in-renderer Pets `Rf`, session-field inheritance rules, trust boundary, and acceptance gates
+> Update when: Channel eligibility, launch handoff, endpoint contract, Rf fingerprint, envelopes, field inheritance, or acceptance evidence changes
 > Last verified: 2026-07-26
 
 ## Decision status
@@ -24,13 +24,16 @@ The external shapes assumed here are pinned by:
 
 The accepted [ADR 0005](../decisions/0005-cdp-rf-control-channel.md),
 [ADR 0006](../decisions/0006-explicit-existing-cdp-attach.md), and
-[ADR 0007](../decisions/0007-user-confirmed-cdp-restart.md) authorize this experimental control
-transport. It must not weaken exact-target, explicit-action, or fail-closed guarantees.
+[ADR 0007](../decisions/0007-user-confirmed-cdp-restart.md), and
+[ADR 0008](../decisions/0008-launch-services-cdp-handoff.md) authorize this experimental control
+transport. It must not weaken exact-target, explicit-action, process-identity, or fail-closed
+guarantees.
 
 ## Outcome
 
-CoPets keeps IPC as the default observation and control path. When the user explicitly launches
-Codex through CoPets **or connects an already loopback-CDP-enabled official Codex App**,
+CoPets keeps IPC as the default observation and control path. When the user explicitly asks CoPets
+to request a Launch Services open of Codex **or connects an already loopback-CDP-enabled official
+Codex App**,
 CoPets may additionally dispatch
 **Ready follow-up / Continue** and **active-turn Steer** by CDP-evaluating the in-renderer Pets
 `Rf` helper (`_Ze.sendRequest` → `GTu[type]`) so the App-local conversation manager inherits the
@@ -42,8 +45,9 @@ dispatch path (Strategy 1 blocked).
 
 ## Goals
 
-1. Offer an opt-in wrapper launch, a user-confirmed restart of one normal local App, and an explicit
-   existing-App connection mode for a loopback CDP endpoint on the **same** user Codex profile.
+1. Offer an opt-in Launch Services handoff, a user-confirmed restart of one normal local App, and
+   an explicit existing-App connection mode for a loopback CDP endpoint on the **same** user Codex
+   profile.
 2. Gate Channel B Ready/Steer send on a verified **`Rf` fingerprint** (not merely bridge presence)
    in that mode only.
 3. Build `Rf` envelopes by **inheriting** session fields from the selected task's native
@@ -91,7 +95,7 @@ CoPets native host
 
 | Concern | Channel A — IPC | Channel B — CDP `Rf` |
 | --- | --- | --- |
-| Endpoint | Attach to already-running App | CoPets wrapper launch, or explicit connect to one verified local CDP App |
+| Endpoint | Attach to already-running App | CoPets Launch Services handoff plus rediscovery, or explicit connect to one verified local CDP App |
 | Selection / lifecycle | App-log + JSONL + IPC | Same native reducers (unchanged) |
 | Approvals / answer / stop | Exact-owner IPC | Not in v1 scope |
 | Active-turn steer | Exact-owner IPC when Channel B unavailable | `Rf('steer-turn-for-host', …)` when `CdpReady` |
@@ -112,19 +116,24 @@ The CDP launcher must:
 1. Keep **Launch Codex** non-disruptive: when a non-CDP Codex/ChatGPT instance is open, ask the
    user to quit it; this path never closes it. **Restart Codex with bridge** is a separate,
    explicitly confirmed action governed below.
-2. Directly spawn the official bundle executable
-   `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT` (or the configured bundle executable), retain
-   its native PID, and pass:
+2. Ask macOS Launch Services to open the official
+   `/Applications/ChatGPT.app` bundle (or configured official bundle) through
+   `/usr/bin/open -n ... --args` with:
    - `--remote-debugging-address=127.0.0.1`
    - `--remote-debugging-port=<ephemeral>`
+   The handoff helper is not the App identity. Rediscover exactly one same-user
+   `/Applications/ChatGPT.app/Contents/MacOS/ChatGPT` process whose command line carries that exact
+   port, then retain only that native PID.
 3. Reuse the **production** Electron user-data directory and the user's `CODEX_HOME` so
    `localConversations`, thread index, and session JSONL are the same sessions the user already has.
 4. Bind CDP to loopback only. Default to a random dynamic high port; an explicit custom port is
    allowed only after native availability validation. A free-port probe selects a candidate only—it
    is never ownership proof. Never persist the resolved runtime port as a stable API.
-5. Before `CdpReady`, prove that the exact spawned PID owns the chosen loopback listening socket;
-   repeat that native ownership check before every CDP send. A collision or ownership mismatch
-   degrades Channel B rather than attaching to the endpoint.
+5. Before `CdpReady`, prove that the exact rediscovered PID owns the chosen loopback listening
+   socket; repeat that native ownership check before every CDP send. A collision or ownership
+   mismatch degrades Channel B rather than attaching to the endpoint. Recheck the exact official
+   command while it is tracked; process-command liveness starts before Ready and listener liveness
+   starts after Ready.
 6. Wait for `/json/version` and at least one `type=page` target before marking Channel B ready.
 7. Verify `window.electronBridge` is present and `getBuildFlavor()` is readable (sanity only).
 8. **Fingerprint `Rf`:** resolve the live `app-initial-*.js` URL from the page, `import()` it, then
@@ -141,13 +150,15 @@ The CDP launcher must:
    an OS permission prompt), an explicit user retry may re-run only the ownership proof and `Rf`
    fingerprint against the same still-live tracked PID and native-only endpoint. The retry accepts
    no port or PID from the WebView and clears that endpoint when its process/listener disappears.
-10. Every launch, Connect, or retry readiness pass has one hard native deadline. Listener, HTTP,
-    WebSocket, and renderer evaluation work consume its remaining budget rather than renewing a
-    timeout per frame or response chunk. Connect and retry divide that one budget into bounded
-    probe attempts so a transient page/socket miss can be retried without extending the deadline.
-    The loopback HTTP reader accepts a bounded `Content-Length` response without waiting for the
-    peer to close an HTTP/1.1 connection. Deadline expiry returns the command, leaves Channel B
-    degraded, and must never leave Settings indefinitely in a launching state.
+10. Every launch, Connect, or retry readiness pass has one hard native deadline. Launch first uses
+    that budget to rediscover the official App; if no unique exact-process candidate appears, it
+    returns without tracking an endpoint. Once a PID is tracked, listener, HTTP, WebSocket, and
+    renderer evaluation consume the remaining budget rather than renewing a timeout per frame or
+    response chunk. Connect and retry divide that one budget into bounded probe attempts so a
+    transient page/socket miss can be retried without extending the deadline. The loopback HTTP
+    reader accepts a bounded `Content-Length` response without waiting for the peer to close an
+    HTTP/1.1 connection. Deadline expiry returns the command, leaves a tracked endpoint degraded,
+    and must never leave Settings indefinitely in a launching state.
 11. On CoPets quit (optional policy): leave Codex running; do not kill the user's App by default.
 
 Do **not** set `BUILD_FLAVOR=dev` for product launches. Live probes showed `dev` can fail at
@@ -171,8 +182,9 @@ must:
    timeout starts no replacement App and directs the user to close Codex manually. CoPets never
    force-closes Codex.
 4. Only after the old process exits and no other official App remains, reuse the ordinary
-   loopback-only CoPets launcher and all of its PID/listener/`Rf` readiness checks. A later launch
-   failure does not silently reopen a normal non-CDP App; recovery remains an explicit user choice.
+   loopback-only CoPets Launch Services handoff and all of its rediscovered-PID/listener/`Rf`
+   readiness checks. A later launch failure does not silently reopen a normal non-CDP App; recovery
+   remains an explicit user choice.
 5. Keep the target PID, command line, resolved port, and exit observation native-only. Quitting
    CoPets still leaves the user App running.
 
@@ -387,12 +399,14 @@ send failure fails closed and does not automatically retry through IPC.
 ## Trust boundary
 
 - CDP endpoint: process-lifetime only. It is either CoPets-launched or a user-clicked explicit
-  existing local connection. Automatic discovery accepts exactly one same-user official App process;
-  custom mode accepts only its matching IPv4 loopback listener. A stored preference never exposes or
-  restores a runtime endpoint. CoPets tracks the exact App PID and requires it to own the listener at
-  readiness and before every send, so a port race, helper-only FD, or PID/listener mismatch fails
-  closed rather than becoming an arbitrary attach. A retry reuses only the native retained endpoint
-  and it is discarded on child exit or external listener loss.
+  existing local connection. A CoPets launch is a macOS Launch Services handoff followed by exactly
+  one same-user official-process rediscovery; the handoff helper is never the endpoint identity.
+  Automatic existing-App discovery accepts exactly one same-user official App process; custom mode
+  accepts only its matching IPv4 loopback listener. A stored preference never exposes or restores a
+  runtime endpoint. CoPets tracks the exact App PID and requires it to own the listener at readiness
+  and before every send, so a port race, helper-only FD, or PID/listener mismatch fails closed rather
+  than becoming an arbitrary attach. A retry reuses only the native retained endpoint and it is
+  discarded on command-liveness loss or external listener loss.
 - Chromium's loopback DevTools protocol has no per-client authentication. It remains an opt-in,
   same-user debugging surface, not a boundary against hostile code already running as that macOS
   user. Use it only in a trusted local user session; CoPets never advertises it as official or safe
@@ -426,9 +440,11 @@ send failure fails closed and does not automatically retry through IPC.
    (`steer-turn-for-host`) without requiring a fresh IPC follower owner.
 4. While `IpcOnly` or `CdpDegraded`, Continue / Steer keep today's IPC exact-owner authorization.
 5. Stop / Approvals never switch to CDP in v1.
-6. Copy must state: standard launch requires the user to quit Codex first; restart closes and reopens
-   one normal Codex only after confirmation; connecting an already CDP-enabled App does not restart
-   it. All paths use a local debugging port and are not an official OpenAI interface.
+6. Copy must state: standard launch requires the user to quit Codex first and asks macOS to open the
+   official App through Launch Services; restart closes and reopens one normal Codex only after
+   confirmation; connecting an already CDP-enabled App does not restart it. All paths use a local
+   debugging port and are not an official OpenAI interface. Copy must not promise how a macOS
+   permission prompt will be labelled.
 7. When an initial readiness check degrades, Settings may offer **Retry verification**. It rechecks
    only the same native tracked endpoint, never sends a follow-up, starts no process, and accepts no
    runtime endpoint from the WebView.
@@ -439,7 +455,7 @@ send failure fails closed and does not automatically retry through IPC.
 
 | Module | Change |
 | --- | --- |
-| Native launcher / `lib.rs` | Direct official-App child spawn, explicit official-process discovery, user-confirmed exact-PID graceful restart, loopback port bookkeeping, and PID/listener proof |
+| Native launcher / `lib.rs` | Launch Services handoff, explicit official-process rediscovery, user-confirmed exact-PID graceful restart, loopback port bookkeeping, and PID/listener proof |
 | `observer/runtime.rs` | `ControlTransport`, native-only tracked endpoint provenance/PID, transport generation; no second selection authority |
 | `observer/commands.rs` | `dispatch_ready_follow_up` / `dispatch_steering` may select Channel B when `CdpReady`; launch, confirmed restart, connect, and retry are ownership-checked before `Rf` verification |
 | `control.rs` | `build_cdp_ready_follow_up` + `build_cdp_steer` params from `ControlTarget` |
@@ -451,8 +467,9 @@ send failure fails closed and does not automatically retry through IPC.
 
 ### Gate C0a — CoPets launch + `Rf` fingerprint
 
-- Wrapper starts unmodified App on loopback CDP with production profile paths, and the exact spawned
-  PID owns the listener before readiness and before a send.
+- Launch Services opens the unmodified official App on loopback CDP with production-profile paths;
+  CoPets independently rediscovers one exact same-user official PID. The helper PID is never
+  accepted, and the rediscovered PID owns the listener before readiness and before a send.
 - Page target appears; `electronBridge` readable; **guarded `Rf` source fingerprint + recognized
   controlled no-content reject**.
 - Fingerprint or PID/listener proof failure leaves transport degraded; IPC path unaffected.
@@ -460,6 +477,9 @@ send failure fails closed and does not automatically retry through IPC.
   leave the launch affordance pending indefinitely.
 - A post-timeout retry succeeds only for the same native retained endpoint and never becomes a
   generic CDP attach.
+- For a launch-handoff change, perform a cold manual A/B observation of any relevant macOS
+  permission prompt. Record its actual label as observed evidence, or record that no prompt
+  appeared; neither result can be inferred from process ancestry alone.
 
 ### Gate C0r — User-confirmed normal-App restart
 
@@ -557,6 +577,8 @@ Shipping Channel B Ready + Steer as non-experimental requires C0+C1+C2+C2b on a 
 - [Bridge vs Pets handler](../research/codex-bridge-vs-pets-handler-2026-07-26.md)
 - [CDP Rf handler live gate](../research/codex-cdp-rf-handler-live-2026-07-26.md)
 - [Existing local CDP attachment](../research/codex-existing-cdp-attach-live-2026-07-26.md)
+- [Launch Services handoff assessment](../research/launch-services-cdp-handoff-2026-07-26.md)
 - [ADR 0004 — Retire Resume Lab](../decisions/0004-retire-codex-resume-lab.md)
 - [ADR 0006 — Explicit existing CDP attachment](../decisions/0006-explicit-existing-cdp-attach.md)
 - [ADR 0007 — User-confirmed CDP restart](../decisions/0007-user-confirmed-cdp-restart.md)
+- [ADR 0008 — Launch Services CDP handoff](../decisions/0008-launch-services-cdp-handoff.md)

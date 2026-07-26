@@ -107,6 +107,8 @@ Approval 和 stop 需要当前已验证的原生 owner，且只针对选中的�
 - 已完成的任务会保留一个 **Continue** 箭头。标准模式下，只有 CoPets 拥有当前已验证的 owner 时，它才会开始下一轮。如果该 owner 正在重连，显式 retry 会先只刷新该任务的原生 follow 注册。若仍不可用，请在官方 Codex App 中打开并聚焦准确的任务，等待其 owner 恢复，然后重试。
 - **Experimental bridge：** 在 Settings 中打开紧凑的 **Experimental bridge** disclosure。要开始新的 bridge session，选择自动端口或一个未使用的自定义本地端口，先退出 Codex，再点击 **Launch Codex**。要使用已通过 loopback CDP 端口启动的 Codex App，改为点击 **Connect existing**；无需重启 Codex。自动 Connect 只接受恰好一个同用户的官方 Codex 候选进程；如果运行多个，请选择 **Custom port**，输入启动 Codex 时使用的端口，然后点击 **Connect**。
 
+  **Launch Codex** 会请 macOS 通过 Launch Services 打开官方 App，然后由 CoPets 独立发现并验证准确的同用户 App 进程和 loopback listener；系统启动助手绝不会被当作 Codex。任何 macOS 权限弹窗显示的名称由系统决定，CoPets 不承诺固定显示结果。
+
   如果普通 Codex App 已经打开，而你希望 CoPets 使它具备 bridge 能力，请使用 **Restart Codex with bridge**。它需要确认，因为会关闭该 App；活动工作可能中断，未保存的 App UI 状态可能丢失。CoPets 只接受一个同用户的普通官方 Codex App，会重新检查它、请求它正常关闭，并在短暂等待后启动 bridge 替代实例。它绝不会强制关闭 Codex。若打开了多个 App，它不会替你选择一个；请自行关闭多余实例。此操作只会在标准 IPC 活跃时显示；降级的已跟踪 bridge 会改为提供 Retry verification。它只出现在 Settings 中，绝不会从 Continue/Steer 错误处运行。
 
   当 bridge 显示 ready 时，即使 IPC owner 已过期，Continue 和活动 Steer 也可以使用选中任务现有的窗口内 session。这使用私有、版本敏感的本机调试接口，不是官方 OpenAI 接口。CoPets 只接受具有 IPv4 loopback listener、匹配 CDP 端口、Codex renderer 和已验证 Pets handler 的同用户官方 App 进程；不会接受 host、DevTools URL、普通浏览器或任意端口。只能在受信任的本机 macOS 用户会话中使用。

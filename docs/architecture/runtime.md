@@ -180,12 +180,16 @@ The package contract is documented in [Pet packages](../protocol/pet-package.md)
 
 [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs) builds the Tauri app, registers commands, owns the menu-bar status item, starts observation, performs native dragging, and emits focus-independent pointer hover changes. The status item toggles pet visibility, creates an independent settings window at screen center on demand, and quits the app. Opening settings focuses only that window; a hidden pet remains hidden and its saved geometry is untouched. Closing the detached window destroys it so the next menu-bar request starts from a fresh visible window. The inline and detached settings surfaces are mutually exclusive: the menu-bar entry dismisses inline settings, while the pet entry destroys any detached window before opening locally. [`src-tauri/tauri.conf.json`](../../src-tauri/tauri.conf.json) owns the persistent pet-window definition and bundle configuration, including first-mouse acceptance so an inactive pet can begin dragging on the first press; `show_settings_window` owns detached-window creation and geometry.
 
-The CDP launcher is native-only. Standard **Launch Codex** never closes an existing App. A separate
-Settings-confirmed restart can select exactly one same-user official non-CDP App, revalidate that
-exact process immediately before one graceful `SIGTERM`, wait for it to exit, then reuse the ordinary
-loopback bridge launcher. It rejects zero, multiple, stale, or already-CDP processes, never force
-kills, never accepts a PID from the WebView, and never runs as a follow-up control fallback. See the
-[CDP channel contract](cdp-follow-up-channel.md) and [ADR 0007](../decisions/0007-user-confirmed-cdp-restart.md).
+The CDP launcher is native-only. Standard **Launch Codex** never closes an existing App. It asks
+macOS Launch Services to open the official bundle, then independently rediscovers the exact
+same-user official PID carrying the selected loopback CDP port; the handoff helper is never trusted
+as Codex. A separate Settings-confirmed restart can select exactly one same-user official non-CDP
+App, revalidate that exact process immediately before one graceful `SIGTERM`, wait for it to exit,
+then reuse the same handoff and PID/listener checks. It rejects zero, multiple, stale, or
+already-CDP processes, never force kills, never accepts a PID from the WebView, and never runs as a
+follow-up control fallback. See the [CDP channel contract](cdp-follow-up-channel.md),
+[ADR 0007](../decisions/0007-user-confirmed-cdp-restart.md), and
+[ADR 0008](../decisions/0008-launch-services-cdp-handoff.md).
 
 Window position and size are stored by [`ui/PetWindow.svelte`](../../ui/PetWindow.svelte).
 [`ui/lib/window-resize.js`](../../ui/lib/window-resize.js) owns monitor normalization and

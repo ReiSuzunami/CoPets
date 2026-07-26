@@ -1,8 +1,8 @@
 # ADR 0005: Opt-in CDP `Rf` control channel
 
-> Status: Accepted
-> Owns: Opt-in CoPets-managed CDP launch, Channel B Ready/Steer dispatch, and its transport/security boundary
-> Update when: CDP eligibility, launch ownership, `Rf` fingerprint, or Channel B scope changes
+> Status: Superseded in part by ADR 0008
+> Owns: Historical initial CoPets-managed CDP launch plus the original Channel B Ready/Steer transport/security decision
+> Update when: The historical record needs correction or a later ADR changes its remaining scope
 > Last verified: 2026-07-26
 
 ## Context
@@ -55,6 +55,13 @@ the unmodified production-profile App. CDP itself remains an unauthenticated sam
 surface, so the feature is not a defense against hostile code already running as the same macOS user.
 CoPets never patches, clones, injects into, or calls the private owner-resume path.
 
+## Supersession
+
+ADR 0008 supersedes the direct executable child-spawn and child-exit portions of this decision with
+a macOS Launch Services handoff plus native PID rediscovery. Channel B scope, loopback-only
+arguments, listener proof, `Rf` validation, and all follow-up controls remain unchanged; their
+current contract lives in the CDP architecture document.
+
 ## Alternatives
 
 - **Keep IPC-only follow-up.** Retained as the default and degraded path, but it cannot cover owner
@@ -88,6 +95,7 @@ unchanged.
 ## References
 
 - [CDP Channel B contract](../architecture/cdp-follow-up-channel.md)
+- [ADR 0008](0008-launch-services-cdp-handoff.md)
 - [CDP `Rf` live gate](../research/codex-cdp-rf-handler-live-2026-07-26.md)
 - [Bridge vs Pets handler](../research/codex-bridge-vs-pets-handler-2026-07-26.md)
 - [ADR 0004](0004-retire-codex-resume-lab.md)

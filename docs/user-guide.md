@@ -128,6 +128,11 @@ same default path unless you explicitly enable the experimental CoPets bridge:
   same-user official Codex candidate; if you run more than one, choose **Custom port**, enter the
   port you started Codex with, and Connect.
 
+  Launch Codex asks macOS Launch Services to open the official App, then CoPets independently
+  rediscovers and verifies the exact same-user App process and loopback listener. It never treats
+  the system launch helper as Codex. macOS determines any permission-alert label, so CoPets cannot
+  promise which app name a future prompt will show.
+
   If a normal Codex App is already open and you want CoPets to make it bridge-capable, use
   **Restart Codex with bridge**. It asks for confirmation because it closes that App; active work can
   be interrupted and unsaved App UI state can be lost. CoPets accepts exactly one same-user normal

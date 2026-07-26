@@ -1,19 +1,10 @@
-use std::{
-    collections::BTreeSet,
-    net::TcpListener,
-    path::Path,
-    process::{Child, Command},
-};
+use std::{collections::BTreeSet, net::TcpListener, path::Path, process::Command};
 
 const CODEX_BUNDLE: &str = "/Applications/ChatGPT.app";
 const CODEX_EXECUTABLE: &str = "/Applications/ChatGPT.app/Contents/MacOS/ChatGPT";
+const LAUNCH_SERVICES_OPEN: &str = "/usr/bin/open";
 const AUTOMATIC_PORT_START: u16 = 49_152;
 const AUTOMATIC_PORT_COUNT: u16 = 16_384;
-
-pub(crate) struct ManagedCodexProcess {
-    pub(crate) pid: u32,
-    pub(crate) child: Child,
-}
 
 /// Native-only provenance for the one CDP endpoint CoPets currently tracks.
 /// The WebView receives neither this value nor the endpoint itself.
@@ -174,6 +165,17 @@ fn launch_args(port: u16) -> [String; 2] {
     ]
 }
 
+fn launch_services_args(port: u16) -> [String; 5] {
+    let [address, port] = launch_args(port);
+    [
+        "-n".to_owned(),
+        CODEX_BUNDLE.to_owned(),
+        "--args".to_owned(),
+        address,
+        port,
+    ]
+}
+
 fn ownership_error() -> String {
     "CoPets could not verify ownership of the local Codex bridge.".to_owned()
 }
@@ -285,6 +287,18 @@ fn process_is_codex_cdp_owner(pid: u32, port: u16) -> bool {
     })
 }
 
+/// Checks that an exact native PID is still the same-user official Codex App
+/// process carrying the requested CDP port. This intentionally does not trust
+/// the Launch Services helper process as the App identity.
+pub(crate) fn codex_process_matches_port(pid: u32, port: u16) -> Result<(), String> {
+    if pid == 0 || validate_port(port).is_err() {
+        return Err(ownership_error());
+    }
+    process_is_codex_cdp_owner(pid, port)
+        .then_some(())
+        .ok_or_else(ownership_error)
+}
+
 /// Requests a graceful close of exactly one revalidated, same-user official
 /// Codex App process. This deliberately never escalates to a force kill.
 pub(crate) fn request_codex_restart(process_id: u32) -> Result<(), String> {
@@ -324,6 +338,37 @@ fn automatic_codex_candidates() -> Result<Vec<CdpEndpoint>, String> {
     )
 }
 
+fn launched_endpoint_from_processes(
+    processes: &[(u32, Option<u16>)],
+    port: u16,
+) -> Result<CdpEndpoint, String> {
+    let candidates = processes
+        .iter()
+        .filter_map(|(process_id, candidate_port)| {
+            (*candidate_port == Some(port)).then_some(CdpEndpoint::launched(*process_id, port))
+        })
+        .collect::<Vec<_>>();
+    match candidates.as_slice() {
+        [endpoint] => Ok(*endpoint),
+        _ => Err(ownership_error()),
+    }
+}
+
+/// Re-discovers the official App after a successful Launch Services handoff.
+/// The handoff process is never retained as a Codex child or accepted as the
+/// endpoint identity; only exactly one same-user official executable carrying
+/// the requested CDP argument is eligible.
+pub(crate) fn discover_launched_codex(port: u16) -> Result<CdpEndpoint, String> {
+    validate_port(port).map_err(|_| ownership_error())?;
+    let table = process_table().ok_or_else(ownership_error)?;
+    let endpoint = launched_endpoint_from_processes(
+        &official_codex_processes_from_ps(&table, unsafe { libc::geteuid() }),
+        port,
+    )?;
+    codex_process_matches_port(endpoint.process_id, endpoint.port)?;
+    Ok(endpoint)
+}
+
 /// Verifies an exact, same-user official App process still owns an IPv4 loopback
 /// CDP listener. This intentionally rejects an arbitrary local DevTools port.
 pub(crate) fn codex_process_owns_port(pid: u32, port: u16) -> Result<(), String> {
@@ -359,27 +404,29 @@ pub(crate) fn discover_existing_codex(port: Option<u16>) -> Result<CdpEndpoint, 
     }
 }
 
-pub(crate) fn launch_codex(port: u16) -> Result<ManagedCodexProcess, String> {
+/// Requests that macOS Launch Services open the official Codex bundle with the
+/// loopback-only CDP arguments. The returned status confirms only the handoff;
+/// callers must re-discover and verify the official App PID before using it.
+pub(crate) fn launch_codex(port: u16) -> Result<(), String> {
+    validate_port(port).map_err(|_| launch_error())?;
     if !Path::new(CODEX_BUNDLE).is_dir() || !Path::new(CODEX_EXECUTABLE).is_file() {
         return Err(launch_error());
     }
-    let child = Command::new(CODEX_EXECUTABLE)
-        .args(launch_args(port))
-        .spawn()
+    let status = Command::new(LAUNCH_SERVICES_OPEN)
+        .args(launch_services_args(port))
+        .status()
         .map_err(|_| launch_error())?;
-    Ok(ManagedCodexProcess {
-        pid: child.id(),
-        child,
-    })
+    status.success().then_some(()).ok_or_else(launch_error)
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        AUTOMATIC_PORT_START, CODEX_EXECUTABLE, cdp_port_from_process_command, launch_args,
-        listener_pids_from_lsof, official_codex_process_cdp_flag, official_codex_processes_from_ps,
-        process_command_is_official_non_cdp_codex, process_command_matches_codex, reserve_port,
-        restart_target_from_processes,
+        AUTOMATIC_PORT_START, CODEX_BUNDLE, CODEX_EXECUTABLE, CdpEndpointOrigin,
+        cdp_port_from_process_command, launch_args, launch_services_args,
+        launched_endpoint_from_processes, listener_pids_from_lsof, official_codex_process_cdp_flag,
+        official_codex_processes_from_ps, process_command_is_official_non_cdp_codex,
+        process_command_matches_codex, reserve_port, restart_target_from_processes,
     };
 
     #[test]
@@ -397,6 +444,33 @@ mod tests {
         let args = launch_args(52_000);
         assert_eq!(args[0], "--remote-debugging-address=127.0.0.1");
         assert_eq!(args[1], "--remote-debugging-port=52000");
+    }
+
+    #[test]
+    fn launcher_hands_the_official_bundle_to_launch_services() {
+        let args = launch_services_args(52_000);
+        assert_eq!(args[0], "-n");
+        assert_eq!(args[1], CODEX_BUNDLE);
+        assert_eq!(args[2], "--args");
+        assert_eq!(args[3], "--remote-debugging-address=127.0.0.1");
+        assert_eq!(args[4], "--remote-debugging-port=52000");
+    }
+
+    #[test]
+    fn launch_rediscovery_requires_one_exact_official_process_for_the_port() {
+        let endpoint = launched_endpoint_from_processes(&[(81_418, Some(52_001))], 52_001)
+            .expect("one matching process should be accepted");
+        assert_eq!(endpoint.process_id, 81_418);
+        assert_eq!(endpoint.origin, CdpEndpointOrigin::CoPetsLaunched);
+        assert!(launched_endpoint_from_processes(&[], 52_001).is_err());
+        assert!(
+            launched_endpoint_from_processes(
+                &[(81_418, Some(52_001)), (81_419, Some(52_001))],
+                52_001,
+            )
+            .is_err()
+        );
+        assert!(launched_endpoint_from_processes(&[(81_418, Some(52_002))], 52_001).is_err());
     }
 
     #[test]

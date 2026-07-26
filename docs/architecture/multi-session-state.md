@@ -46,8 +46,8 @@ sanitized compatibility evidence and have no lifecycle reducer or selected-task 
    snapshot; that snapshot must retain the exact selected conversation and host. If the snapshot
    omits `hostId`, the adapter may use only the exact host recorded when that refresh was
    successfully written. In explicit local `CdpReady`, Ready/Steer instead require the same selected
-   retained conversation, host, workspace, bridge generation, and tracked official App PID/listener
-   proof; they do not use a global owner or an IPC recovery fallback.
+   retained conversation, host, workspace, bridge generation, and tracked official App
+   PID/command/listener proof; they do not use a global owner or an IPC recovery fallback.
 10. In `IpcOnly`/`CdpDegraded`, steering dispatch exists only while the selected turn is active and
     its IPC owner is connected. Selected `working` tasks keep an explicit Steer affordance visible,
     and selected terminal `completed` tasks keep an explicit Ready follow-up affordance visible, but
@@ -213,10 +213,11 @@ answer, and stop require a `working` non-terminal lifecycle, connected IPC, and 
 owner; approval and answer additionally require the still-pending opaque action ID. In default IPC
 transport, Steer/Ready use the same owner proof. In `CdpReady`, only Steer/Ready can instead use the
 verified `Rf` route, after selected lifecycle plus retained conversation, host, workspace,
-transport-generation, and tracked official PID/listener checks. The selected working Steer affordance and
-terminal completed Ready follow-up affordance remain visible while the owner reconnects. During IPC recovery, a matching
-current snapshot may retain the same owner only after an explicit follow refresh was written for the
-selected conversation and host. A second unavailable-owner response leaves the IPC control stale.
+transport-generation, and tracked official PID/command/listener checks. The selected working Steer
+affordance and terminal completed Ready follow-up affordance remain visible while the owner
+reconnects. During IPC recovery, a matching current snapshot may retain the same owner only after
+an explicit follow refresh was written for the selected conversation and host. A second
+unavailable-owner response leaves the IPC control stale.
 An explicit retry must wait for the user to open that exact task in the unmodified Codex App and for
 CoPets to observe a fresh selected owner before it sends an IPC prompt. Neither channel falls back to
 another task or invents a resume request.
