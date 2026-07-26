@@ -1,49 +1,45 @@
 <p align="center">
-  <img src="docs/assets/brand/copets-cloud.png" width="128" alt="CoPets yellow cloud">
+  <img src="docs/assets/brand/copets-cloud.png" width="128" alt="CoPets 黄色云朵">
 </p>
 
 <h1 align="center">CoPets</h1>
 
 <p align="center">
-  <strong>A desktop pet for your running Codex tasks.</strong>
+  <strong>让正在运行的 Codex 任务变成桌面宠物。</strong>
 </p>
 
 <p align="center">
-  English · <a href="README.zh-CN.md">简体中文</a>
+  简体中文 · <a href="README.en.md">English</a>
 </p>
 
-CoPets is an independent, open-source macOS companion for Codex App. It turns local lifecycle
-signals from the task selected in Codex into pet animations, compact context bubbles, and
-context-aware controls.
+CoPets 是独立、开源的 macOS Codex App 桌面伴侣：它把当前所选任务的本机状态显示为宠物动画和简短气泡。
+它不代理模型流量、不修改 Codex 界面，也不是 OpenAI 官方产品。
 
-CoPets runs locally. It does not proxy model traffic, modify the Codex UI, or require Accessibility
-permission. It is not an official OpenAI product. Codex integration relies on private, unversioned
-local interfaces and may need an update when Codex App changes.
+## 安装
 
-The optional experimental bridge is explicitly configured in Settings and only uses a verified local
-loopback endpoint owned by the official Codex App. See the [user guide](docs/user-guide.md) before
-enabling it.
+需要 macOS 11+ 和 Codex App。
 
-## Install
+1. 从 [`v0.2.0` Releases](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.0) 下载 DMG 与 `.sha256` 文件。
+2. 将两者放在同一目录并校验：
 
-Requirements:
+   ```bash
+   shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
+   ```
 
-- macOS 11 or newer
-- Codex App
+3. 打开 DMG，双击 **Install CoPets**，按提示安装或升级。
 
-Download the universal DMG and its checksum from
-[GitHub Releases](https://github.com/ReiSuzunami/CoPets/releases). Keep both files in the same
-folder, then verify the current release:
+> `v0.2.0` 是开发签名、未公证的测试 prerelease。Gatekeeper 可能阻止首次打开；仅在校验值匹配后，从 **系统设置 → 隐私与安全性** 选择“仍要打开”。
 
-```bash
-shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
-```
+## 使用
 
-Open the DMG and double-click **Install CoPets**. The same installer can safely upgrade CoPets or
-move an existing installation to Trash. Removing the app does not delete pet packages under
-`${CODEX_HOME:-~/.codex}/pets`.
+1. 打开 Codex App 并选中一个本地任务。
+2. 打开 CoPets；没有有效宠物时会自动打开设置。
+3. 导入 Pet Creator 兼容的包文件夹、`pet.json` 或 ZIP。应用不会自动安装宠物；源码仓库提供 [Sunflower 示例](examples/pets/sunflower)。
+4. 关闭设置，宠物会跟随当前所选任务。
 
-To build from source:
+实验桥接只可在设置中显式启用，依赖版本敏感的本机私有接口。升级 Codex App 后，请先阅读[用户指南](docs/user-guide.md)并重新验证兼容性。
+
+## 从源码构建
 
 ```bash
 npm ci
@@ -51,37 +47,8 @@ npm run codesign:setup
 npm run build:macos:signed -- --bundles app
 ```
 
-The app is written to `src-tauri/target/release/bundle/macos/CoPets.app`.
+构建结果：`src-tauri/target/release/bundle/macos/CoPets.app`。
 
-## macOS notice
-
-CoPets releases are intentionally not notarized by Apple. macOS may block **Install CoPets** or
-CoPets on first launch.
-
-If that happens:
-
-1. Try to open the blocked app once.
-2. Open **System Settings → Privacy & Security**.
-3. Click **Open Anyway**, authenticate, and confirm **Open**.
-4. Repeat for CoPets itself if macOS asks again after installation.
-
-Only bypass Gatekeeper for a file downloaded from this repository's Releases page after its
-checksum matches. The source and CI workflow are public, and you can build the app locally instead.
-
-## Use
-
-1. Open Codex App and select a local task.
-2. Open CoPets. Settings appears automatically when no valid pet is installed.
-3. Import a Pet Creator-compatible folder, `pet.json`, or ZIP. No pet is bundled or auto-installed;
-   source checkouts include importable [example pets](examples/pets/).
-4. Close Settings. The pet now follows the task selected in Codex.
-
-Hover the pet to open its status menu, or use the round CoPets menu-bar item to open Settings,
-show or hide the pet, and quit. Approval, reply, stop, and other task controls appear only when
-CoPets can verify that they target the selected live task.
-
-For pet management and troubleshooting, see the [user guide](docs/user-guide.md).
+更多安装、宠物管理与排障见[用户指南](docs/user-guide.md)。素材授权见[ASSET_LICENSES.md](ASSET_LICENSES.md)。
 
 [MIT](LICENSE) © 2026 CoPets contributors.
-
-Asset provenance and contribution requirements: [ASSET_LICENSES.md](ASSET_LICENSES.md).

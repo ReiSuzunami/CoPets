@@ -76,7 +76,7 @@ function checkMetadata(file, source) {
 const docs = (await walk(docsRoot)).sort();
 const topLevel = [
   "README.md",
-  "README.zh-CN.md",
+  "README.en.md",
   "AGENTS.md",
   "CLAUDE.md",
   "CONTRIBUTING.md",
