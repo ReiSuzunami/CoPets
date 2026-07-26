@@ -5,6 +5,8 @@
 > Update when: A user-facing workflow, requirement, control, error state, or installation path changes
 > Last verified: 2026-07-26
 
+[简体中文](user-guide.zh-CN.md) · English
+
 CoPets is an independent macOS companion for an already-running Codex App. Once the `.app` is installed, selecting and managing pets does not require an Agent or manual file editing.
 
 ## Requirements and installation

@@ -37,7 +37,7 @@ CoPets 是独立、开源的 macOS Codex App 桌面伴侣：它把当前所选�
 3. 导入 Pet Creator 兼容的包文件夹、`pet.json` 或 ZIP。应用不会自动安装宠物；源码仓库提供 [Sunflower 示例](examples/pets/sunflower)。
 4. 关闭设置，宠物会跟随当前所选任务。
 
-实验桥接只可在设置中显式启用，依赖版本敏感的本机私有接口。升级 Codex App 后，请先阅读[用户指南](docs/user-guide.md)并重新验证兼容性。
+实验桥接只可在设置中显式启用，依赖版本敏感的本机私有接口。升级 Codex App 后，请先阅读[用户指南](docs/user-guide.zh-CN.md)并重新验证兼容性。
 
 ## 从源码构建
 
@@ -49,6 +49,6 @@ npm run build:macos:signed -- --bundles app
 
 构建结果：`src-tauri/target/release/bundle/macos/CoPets.app`。
 
-更多安装、宠物管理与排障见[用户指南](docs/user-guide.md)。素材授权见[ASSET_LICENSES.md](ASSET_LICENSES.md)。
+更多安装、宠物管理与排障见[用户指南](docs/user-guide.zh-CN.md)。素材授权见[ASSET_LICENSES.md](ASSET_LICENSES.md)。
 
 [MIT](LICENSE) © 2026 CoPets contributors.

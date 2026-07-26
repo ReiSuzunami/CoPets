@@ -14,7 +14,8 @@ This index is the entry point for maintainers. Each durable fact has one canonic
 | Product | [README](../README.md) | Project identity, quick start, capability summary |
 | Product | [Product context](../PRODUCT.md) | Target users, product purpose, positioning, personality, anti-references, and design principles |
 | Legal | [Asset licenses](../ASSET_LICENSES.md) | Asset provenance limits and contributor licensing representation |
-| Product | [User guide](user-guide.md) | End-user installation, first run, pet management, controls, troubleshooting, updating, and removal |
+| Product | [User guide](user-guide.md) | Canonical English guide for end-user installation, first run, pet management, controls, troubleshooting, updating, and removal |
+| Product | [用户指南（简体中文）](user-guide.zh-CN.md) | Simplified Chinese translation of the user guide; English guide remains canonical |
 | Planning | [Roadmap](roadmap.md) | Forward-looking milestones, dependencies, and exit criteria; not current feature availability |
 | Agent workflow | [AGENTS](../AGENTS.md) / [CLAUDE](../CLAUDE.md) | Shared Agent reading order, invariants, and task routing |
 | Architecture | [Runtime architecture](architecture/runtime.md) | Module ownership, interfaces, data flow, failure boundaries |
