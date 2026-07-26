@@ -30,8 +30,9 @@ Requires macOS 11+ and Codex App.
 
 3. Open the DMG and double-click **Install CoPets** to install or upgrade.
 
-> `v0.2.1` is a development-signed, unnotarized testing prerelease. Gatekeeper may block it; only
-> bypass Gatekeeper from **System Settings → Privacy & Security** after the checksum matches.
+> `v0.2.1` is a stable GitHub Release, but it remains development-signed and is not notarized by
+> Apple. Gatekeeper may block it; only bypass Gatekeeper from **System Settings → Privacy &
+> Security** after the checksum matches.
 
 ## Use
 

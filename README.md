@@ -28,7 +28,7 @@ CoPets 是独立、开源的 macOS Codex App 桌面伴侣：它把当前所选�
 
 3. 打开 DMG，双击 **Install CoPets**，按提示安装或升级。
 
-> `v0.2.1` 是开发签名、未公证的测试 prerelease。Gatekeeper 可能阻止首次打开；仅在校验值匹配后，从 **系统设置 → 隐私与安全性** 选择“仍要打开”。
+> `v0.2.1` 是正式 GitHub Release，但仍使用开发签名且未经 Apple 公证。Gatekeeper 可能阻止首次打开；仅在校验值匹配后，从 **系统设置 → 隐私与安全性** 选择“仍要打开”。
 
 ## 使用
 

@@ -2,9 +2,9 @@
 
 ## Supported versions
 
-CoPets publishes `v0.2.1` as a public prerelease for testing. Security fixes target that prerelease
-and the latest revision of `main`; older snapshots and other local development builds are
-unsupported. No notarized release has been published.
+CoPets publishes `v0.2.1` as its current public GitHub Release. Security fixes target that release
+and the latest revision of `main`; older releases, snapshots, and local development builds are
+unsupported. No Developer ID-signed or notarized release has been published.
 
 ## Report a vulnerability
 
@@ -24,7 +24,7 @@ Include:
 - whether the issue affects local files, IPC controls, pet-package import, signing, or updates.
 
 Maintainers should acknowledge a report before discussing disclosure timing. No response-time or
-release-time guarantee exists before the first public release.
+disclosure-timeline guarantee is offered.
 
 ## Security boundary
 

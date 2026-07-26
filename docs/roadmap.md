@@ -188,9 +188,10 @@ Exit criteria:
 3. Registry governance, content removal, publisher trust, and privacy rules are documented before
    public submissions open.
 
-## M5 — Public distribution and marketplace listings
+## M5 — Notarized distribution and marketplace listings
 
-**Goal:** Make installation and updates suitable for users who do not build from source.
+**Goal:** Make installation and updates suitable for broad distribution without manual trust
+exceptions.
 
 Planned work:
 
@@ -200,18 +201,19 @@ Planned work:
 - Evaluate a Homebrew Cask after the signed release process is stable.
 - Evaluate Mac App Store and future agent-ecosystem marketplace listings separately. Sandbox,
   entitlement, policy, and private-interface feasibility must be proven; listing is not promised.
-- Complete security, privacy, retention, licensing, and legal review before a public release.
+- Complete security, privacy, retention, licensing, and legal review before broader notarized
+  distribution.
 
-Current foundation: the public `v0.2.1` development-signed testing prerelease has a universal,
-self-cleaning DMG with transactional install/upgrade, recoverable removal, checksum generation, and
-artifact audits. M5 remains planned until Developer ID signing, notarization, public compatibility
-evidence, and the remaining distribution review are complete.
+Current foundation: the public `v0.2.1` GitHub Release is development-signed and unnotarized. It has
+a universal, self-cleaning DMG with transactional install/upgrade, recoverable removal, checksum
+generation, and artifact audits. M5 remains planned until Developer ID signing, notarization, public
+compatibility evidence, and the remaining distribution review are complete.
 
 Exit criteria:
 
 1. A clean Mac can install, launch, update, and remove the app without Node.js, Rust, or an Agent.
-2. Every public build verifies its signature, notarization, checksums, version, and compatibility
-   evidence.
+2. Every M5 distribution build verifies its Developer ID signature, notarization, checksums,
+   version, and compatibility evidence.
 3. A distribution channel that cannot preserve the privacy and routing invariants is declined rather
    than supported through weaker behavior.
 

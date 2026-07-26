@@ -1,7 +1,7 @@
 # Support
 
-CoPets is pre-release software for macOS and depends on private, version-sensitive Codex App
-interfaces. There is no compatibility or response-time guarantee.
+CoPets is early-stage macOS software and depends on private, version-sensitive Codex App interfaces.
+There is no compatibility or response-time guarantee.
 
 Before asking for help:
 

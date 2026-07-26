@@ -11,7 +11,7 @@ CoPets is an independent macOS companion for an already-running Codex App. Once 
 
 ## Requirements and installation
 
-The public `v0.2.1` prerelease requires:
+The public `v0.2.1` GitHub Release requires:
 
 - macOS 11 or newer.
 - Codex App for task observation. CoPets may launch before or after Codex.
@@ -33,9 +33,9 @@ After success, choose whether to eject and keep the DMG or eject and move the ve
 Trash. The temporary eject helper deletes itself. On a Mac where `/Applications` is not writable,
 the installer uses the current user's `~/Applications` directory.
 
-The prerelease has a local development signature and is not notarized. Gatekeeper may require the
-standard Finder **Open** confirmation. This is a public testing artifact, not a notarized distribution
-build.
+The GitHub Release has a local development signature and is not notarized. Gatekeeper may require
+the standard Finder **Open** confirmation. It is a stable GitHub Release, not an Apple-notarized
+distribution build.
 
 ### Build from source
 
@@ -199,7 +199,7 @@ For development diagnostics, use the independent probes documented in [updating 
 
 ## Update and remove
 
-For prerelease updates, download the newer DMG and run **Install CoPets** again. The installer quits
+For release updates, download the newer DMG and run **Install CoPets** again. The installer quits
 the recognized running copy, validates the replacement, stages it beside the destination, and
 restores the previous app if final placement fails. Recheck Codex compatibility after either app
 changes.

@@ -146,8 +146,10 @@ Small bug fixes and reversible UI polish do not need ADRs.
 5. Verify both app and installer architectures, minimum macOS, identifiers, nested/outer signatures,
    Finder layout, install, upgrade, rollback boundary, conflict and symlink refusal, uninstall data
    preservation, copied-helper eject, and SHA-256.
-6. Use a Developer ID identity, notarization, and stapling for public distribution. A local identity
-   is development-only and must be labeled as such in a private prerelease.
+6. Use a Developer ID identity, notarization, and stapling for trusted public distribution. A local
+   identity is development-only. If an explicit GitHub Release ships such a build, its release
+   notes and installation docs must label it development-signed and unnotarized, include checksum
+   verification and Gatekeeper guidance, and never call it Apple-trusted or notarized.
 7. Inspect icons, pet discovery, task selection, terminal settle, controls, drag/resize restore, and
    Retina rendering.
 8. Publish only after compatibility evidence names the tested Codex App version.

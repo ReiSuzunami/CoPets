@@ -2,7 +2,7 @@
 
 Notable user-visible changes are recorded here. The project follows Semantic Versioning and the release rules in [`docs/maintenance/updating.md`](docs/maintenance/updating.md).
 
-The current public testing prerelease is `v0.2.1`. It is development-signed and not notarized.
+The current public GitHub Release is `v0.2.1`. It is development-signed and not notarized.
 
 ## Unreleased
 

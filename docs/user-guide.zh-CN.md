@@ -11,7 +11,7 @@ CoPets 是一个独立的 macOS 伴侣应用，用于配合已运行的 Codex Ap
 
 ## 系统要求与安装
 
-公开的 <code>v0.2.1</code> prerelease 要求：
+公开的 <code>v0.2.1</code> GitHub Release 要求：
 
 - macOS 11 或更高版本。
 - 用于观察任务状态的 Codex App。CoPets 可以在 Codex 之前或之后启动。
@@ -26,7 +26,7 @@ shasum -a 256 -c CoPets-v0.2.1-macos-universal.dmg.sha256
 
 安装成功后，可以选择弹出并保留 DMG，或弹出并将已验证的 DMG 移到废纸篓。临时弹出辅助程序会自行删除。若 <code>/Applications</code> 不可写，安装器会使用当前用户的 <code>~/Applications</code> 目录。
 
-此 prerelease 使用本地开发签名，尚未经过公证。Gatekeeper 可能要求使用 Finder 的标准 **Open** 确认。这是公开测试产物，不是经过公证的发行版本。
+此 GitHub Release 使用本地开发签名，尚未经过 Apple 公证。Gatekeeper 可能要求使用 Finder 的标准 **Open** 确认。它是正式 GitHub Release，但不是经过 Apple 公证的分发版本。
 
 ### 从源码构建
 
@@ -44,7 +44,7 @@ npm run build:macos:signed -- --bundles app
 src-tauri/target/release/bundle/macos/CoPets.app
 ~~~
 
-从 Finder 打开该应用。宠物以菜单栏配件形式运行：不会出现在 Dock 中、始终位于普通窗口上方，并通过圆形菜单栏图标提供 **Open Settings**、**Show/Hide** 和 **Quit**。Developer ID 签名、公证和公开下载仍是[路线图](roadmap.md)中的 M5 工作。
+从 Finder 打开该应用。宠物以菜单栏配件形式运行：不会出现在 Dock 中、始终位于普通窗口上方，并通过圆形菜单栏图标提供 **Open Settings**、**Show/Hide** 和 **Quit**。Developer ID 签名、公证和更广泛分发仍是[路线图](roadmap.md)中的 M5 工作。
 
 ## 首次运行
 
@@ -153,6 +153,6 @@ CoPets 观察本机同一用户的 Codex 信号。在 IPC 初始化前，它会�
 
 ## 更新和移除
 
-要更新 prerelease，请下载较新的 DMG 并再次运行 **Install CoPets**。安装器会退出已识别的运行中副本、验证替换版本、在目标位置旁暂存它，若最终放置失败则恢复前一版本。任一应用更新后都要重新检查 Codex 兼容性。
+要更新正式版本，请下载较新的 DMG 并再次运行 **Install CoPets**。安装器会退出已识别的运行中副本、验证替换版本、在目标位置旁暂存它，若最终放置失败则恢复前一版本。任一应用更新后都要重新检查 Codex 兼容性。
 
 要移除 CoPets，请重新打开其 release DMG，双击 **Install CoPets**，然后选择 **Uninstall Existing…**。确认后，已验证的应用会移到废纸篓。卸载程序不会删除 <code>${CODEX_HOME:-~/.codex}/pets</code>、Codex sessions、logs、databases、sockets 或导入来源文件夹，因为它们属于共享内容或外部所有者。只有在你确实想删除这些已安装副本时，才通过 CoPets 设置移除单个包。
