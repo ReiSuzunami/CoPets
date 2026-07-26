@@ -3,7 +3,7 @@
 > Status: Normative index
 > Owns: Documentation taxonomy, navigation, and canonical fact ownership
 > Update when: A document is added, removed, renamed, or given a different responsibility
-> Last verified: 2026-07-26
+> Last verified: 2026-07-27
 
 This index is the entry point for maintainers. Each durable fact has one canonical owner; other documents summarize and link instead of copying the full contract.
 
@@ -40,7 +40,7 @@ This index is the entry point for maintainers. Each durable fact has one canonic
 | Evidence | [Bridge vs Pets handler: 2026-07-26](research/codex-bridge-vs-pets-handler-2026-07-26.md) | Live+static proof that preload `sendMessageFromView` is not equivalent to Pets/`GTu` follow-up |
 | Evidence | [Codex CDP Rf handler live: 2026-07-26](research/codex-cdp-rf-handler-live-2026-07-26.md) | Live Strategy 2 pass: CDP → `Rf` Ready follow-up and `steer-turn-for-host` on real profile |
 | Evidence | [Existing local Codex CDP attachment: 2026-07-26](research/codex-existing-cdp-attach-live-2026-07-26.md) | Sanitized live proof for a pre-launched official loopback CDP App, including inherited-listener handling |
-| Evidence | [Launch Services CDP handoff assessment: 2026-07-26](research/launch-services-cdp-handoff-2026-07-26.md) | Local launcher assessment and explicit pending permission-attribution product gate; not a compatibility claim |
+| Evidence | [Launch Services CDP handoff assessment: 2026-07-26](research/launch-services-cdp-handoff-2026-07-26.md) | Local Launch Services and TCC attribution observation with remaining full C0a/C0r gates; not a general compatibility claim |
 | Decisions | [Architecture decisions](decisions/README.md) | ADR lifecycle and index |
 | Decisions | [ADR template](decisions/0000-template.md) | Required decision-record structure |
 | Decisions | [ADR 0001: Pi extension CoPets bridge](decisions/0001-pi-extension-copets-bridge.md) | Proposed Pi extension/native-adapter topology and trust boundary |

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-CoPets publishes `v0.2.0` as a public prerelease for testing. Security fixes target that prerelease
+CoPets publishes `v0.2.1` as a public prerelease for testing. Security fixes target that prerelease
 and the latest revision of `main`; older snapshots and other local development builds are
 unsupported. No notarized release has been published.
 

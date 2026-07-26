@@ -21,16 +21,16 @@ Codex UI, or represent OpenAI.
 Requires macOS 11+ and Codex App.
 
 1. Download the DMG and `.sha256` file from the
-   [`v0.2.0` release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.0).
+   [`v0.2.1` release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.1).
 2. Keep both files together and verify them:
 
    ```bash
-   shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
+   shasum -a 256 -c CoPets-v0.2.1-macos-universal.dmg.sha256
    ```
 
 3. Open the DMG and double-click **Install CoPets** to install or upgrade.
 
-> `v0.2.0` is a development-signed, unnotarized testing prerelease. Gatekeeper may block it; only
+> `v0.2.1` is a development-signed, unnotarized testing prerelease. Gatekeeper may block it; only
 > bypass Gatekeeper from **System Settings → Privacy & Security** after the checksum matches.
 
 ## Use

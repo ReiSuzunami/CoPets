@@ -3,7 +3,7 @@
 > Status: Normative
 > Owns: End-user installation, first run, pet management, controls, troubleshooting, updating, and removal
 > Update when: A user-facing workflow, requirement, control, error state, or installation path changes
-> Last verified: 2026-07-26
+> Last verified: 2026-07-27
 
 [简体中文](user-guide.zh-CN.md) · English
 
@@ -11,16 +11,16 @@ CoPets is an independent macOS companion for an already-running Codex App. Once 
 
 ## Requirements and installation
 
-The public `v0.2.0` prerelease requires:
+The public `v0.2.1` prerelease requires:
 
 - macOS 11 or newer.
 - Codex App for task observation. CoPets may launch before or after Codex.
 
 Download the universal DMG and its checksum from the
-[`v0.2.0` release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.0). Verify the download:
+[`v0.2.1` release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.1). Verify the download:
 
 ```bash
-shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
+shasum -a 256 -c CoPets-v0.2.1-macos-universal.dmg.sha256
 ```
 
 Open the DMG and double-click **Install CoPets**. Confirm **Install** or **Upgrade**. The installer

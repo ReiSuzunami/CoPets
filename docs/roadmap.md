@@ -3,7 +3,7 @@
 > Status: Proposed
 > Owns: Forward-looking milestones, sequencing, dependencies, and exit criteria; not current feature availability
 > Update when: A milestone changes scope, order, status, dependency, exit criteria, or delivery state
-> Last verified: 2026-07-26
+> Last verified: 2026-07-27
 
 This roadmap describes intended direction, not promised release dates or current support. The
 [feature catalog](features/catalog.md) remains the canonical source for behavior available in the
@@ -202,7 +202,7 @@ Planned work:
   entitlement, policy, and private-interface feasibility must be proven; listing is not promised.
 - Complete security, privacy, retention, licensing, and legal review before a public release.
 
-Current foundation: the public `v0.2.0` development-signed testing prerelease has a universal,
+Current foundation: the public `v0.2.1` development-signed testing prerelease has a universal,
 self-cleaning DMG with transactional install/upgrade, recoverable removal, checksum generation, and
 artifact audits. M5 remains planned until Developer ID signing, notarization, public compatibility
 evidence, and the remaining distribution review are complete.

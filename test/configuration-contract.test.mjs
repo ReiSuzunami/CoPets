@@ -72,6 +72,7 @@ test("build commands and release targets use the supported pipeline", () => {
     "icons/icon.ico",
   ]);
   assert.equal(tauri.bundle.macOS.signingIdentity, "-");
+  assert.equal(tauri.bundle.macOS.minimumSystemVersion, "11.0");
   assert.equal(
     packageConfig.scripts.check,
     "npm test && npm run docs:check && npm run audit:public && cargo check --manifest-path src-tauri/Cargo.toml --locked",

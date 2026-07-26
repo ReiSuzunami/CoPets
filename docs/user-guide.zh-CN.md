@@ -3,7 +3,7 @@
 > Status: Normative
 > Owns: Simplified Chinese rendering of the end-user guide; user-guide.md remains canonical
 > Update when: The English user guide changes or a translated end-user workflow needs correction
-> Last verified: 2026-07-26
+> Last verified: 2026-07-27
 
 简体中文 · [English](user-guide.md)
 
@@ -11,15 +11,15 @@ CoPets 是一个独立的 macOS 伴侣应用，用于配合已运行的 Codex Ap
 
 ## 系统要求与安装
 
-公开的 <code>v0.2.0</code> prerelease 要求：
+公开的 <code>v0.2.1</code> prerelease 要求：
 
 - macOS 11 或更高版本。
 - 用于观察任务状态的 Codex App。CoPets 可以在 Codex 之前或之后启动。
 
-从 [<code>v0.2.0</code> release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.0) 下载通用 DMG 及其校验和文件。校验下载内容：
+从 [<code>v0.2.1</code> release](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.1) 下载通用 DMG 及其校验和文件。校验下载内容：
 
 ~~~bash
-shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
+shasum -a 256 -c CoPets-v0.2.1-macos-universal.dmg.sha256
 ~~~
 
 打开 DMG，双击 **Install CoPets**，再确认 **Install** 或 **Upgrade**。安装器会验证嵌入的应用载荷与暂存副本，退出正在运行且可识别的 CoPets 实例，并通过同目录备份替换已有版本；若最终放置失败，可以恢复该备份。它会拒绝符号链接、其他用户拥有但名为 <code>CoPets.app</code> 的项目、已变更的 bundle identity、意外的可执行文件布局和无效签名。

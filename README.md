@@ -19,16 +19,16 @@ CoPets 是独立、开源的 macOS Codex App 桌面伴侣：它把当前所选�
 
 需要 macOS 11+ 和 Codex App。
 
-1. 从 [`v0.2.0` Releases](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.0) 下载 DMG 与 `.sha256` 文件。
+1. 从 [`v0.2.1` Releases](https://github.com/ReiSuzunami/CoPets/releases/tag/v0.2.1) 下载 DMG 与 `.sha256` 文件。
 2. 将两者放在同一目录并校验：
 
    ```bash
-   shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
+   shasum -a 256 -c CoPets-v0.2.1-macos-universal.dmg.sha256
    ```
 
 3. 打开 DMG，双击 **Install CoPets**，按提示安装或升级。
 
-> `v0.2.0` 是开发签名、未公证的测试 prerelease。Gatekeeper 可能阻止首次打开；仅在校验值匹配后，从 **系统设置 → 隐私与安全性** 选择“仍要打开”。
+> `v0.2.1` 是开发签名、未公证的测试 prerelease。Gatekeeper 可能阻止首次打开；仅在校验值匹配后，从 **系统设置 → 隐私与安全性** 选择“仍要打开”。
 
 ## 使用
 

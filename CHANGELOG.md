@@ -2,15 +2,21 @@
 
 Notable user-visible changes are recorded here. The project follows Semantic Versioning and the release rules in [`docs/maintenance/updating.md`](docs/maintenance/updating.md).
 
-The current public testing prerelease is `v0.2.0`. It is development-signed and not notarized.
+The current public testing prerelease is `v0.2.1`. It is development-signed and not notarized.
 
 ## Unreleased
+
+## [0.2.1] - 2026-07-27
 
 - Changed experimental **Launch Codex** and **Restart Codex with bridge** to ask macOS Launch
   Services to open the official App instead of retaining a direct Codex child process. CoPets now
   rediscovers and monitors the exact same-user official PID before accepting its loopback listener.
-  This avoids treating a launcher helper as Codex, but does not promise how a future macOS permission
-  alert will be labelled; that remains a product-path observation.
+  This removes the old direct launch responsibility chain for new sessions. Processes started by an
+  older build retain their old macOS responsibility until they exit, so fully quit those sessions
+  before testing the new launcher. Future macOS permission-alert labels remain version- and
+  system-state-dependent and are not guaranteed.
+- Aligned both universal application slices and bundle metadata with the documented macOS 11
+  minimum, matching the installer and download requirements.
 
 ## [0.2.0] - 2026-07-26
 
