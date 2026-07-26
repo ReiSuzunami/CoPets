@@ -3,7 +3,7 @@
 > Status: Normative index
 > Owns: ADR numbering, lifecycle, and decision index
 > Update when: An ADR is added or changes status
-> Last verified: 2026-07-24
+> Last verified: 2026-07-26
 
 Architecture Decision Records preserve decisions whose reasoning cannot be recovered safely from code alone.
 
@@ -21,6 +21,12 @@ Architecture Decision Records preserve decisions whose reasoning cannot be recov
 | ADR | Status | Decision |
 | --- | --- | --- |
 | [0001 — Pi extension CoPets bridge](0001-pi-extension-copets-bridge.md) | Proposed | Integrate Pi through an opt-in extension that connects outward to a native CoPets adapter |
+| [0002 — Native per-task follow retention](0002-native-follow-retention.md) | Accepted | Retain native follower registrations across task switches and IPC reconnects |
+| [0003 — Experimental cloned Codex owner-resume bridge](0003-experimental-codex-resume-lab.md) | Superseded | Historical clone experiment; superseded by ADR 0004 |
+| [0004 — Retire cloned Codex Resume Lab](0004-retire-codex-resume-lab.md) | Accepted | Pair CoPets only with the unmodified official Codex App |
+| [0005 — Opt-in CDP `Rf` control channel](0005-cdp-rf-control-channel.md) | Accepted | Launch an unmodified official App through CoPets and use the verified Pets handler for selected Ready/Steer |
+| [0006 — Explicit existing CDP attachment](0006-explicit-existing-cdp-attach.md) | Accepted | Attach only to a user-requested, same-user official Codex loopback CDP endpoint that passes process, listener, and `Rf` checks |
+| [0007 — User-confirmed CDP restart](0007-user-confirmed-cdp-restart.md) | Accepted | Restart exactly one normal official Codex App through the loopback bridge only after a warning confirmation and bounded graceful close |
 
-No ADRs are accepted yet. Existing architecture documents describe the current baseline; proposed
-records do not change current behavior until accepted and implemented.
+Existing architecture documents describe the current baseline; proposed records do not change current
+behavior until accepted and implemented.

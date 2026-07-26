@@ -5,6 +5,8 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
+use crate::cdp::ControlTransport;
+
 const SUMMARY_LIMIT: usize = 180;
 
 #[derive(Clone, Default, Serialize)]
@@ -12,6 +14,10 @@ const SUMMARY_LIMIT: usize = 180;
 pub struct ControlSnapshot {
     pub can_stop: bool,
     pub can_reply: bool,
+    pub can_start_follow_up: bool,
+    pub show_working_follow_up: bool,
+    pub show_ready_follow_up: bool,
+    pub transport: ControlTransport,
     pub notifications: Vec<ControlNotification>,
 }
 
@@ -43,7 +49,7 @@ pub struct ControlOption {
     pub description: String,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub(crate) struct ControlTarget {
     pub conversation_id: String,
     pub owner_client_id: String,
@@ -511,56 +517,137 @@ pub(crate) fn build_control_request(
     }
 }
 
-pub(crate) fn build_follow_up(
-    target: &ControlTarget,
-    prompt: &str,
-) -> Result<(String, Value), String> {
-    let prompt = prompt.trim();
+struct PreparedFollowUp {
+    prompt: String,
+    client_message_id: String,
+    cwd: String,
+    input: Value,
+}
+
+fn restore_message(follow_up: &PreparedFollowUp, restore_id: String) -> Value {
+    json!({
+        "id": restore_id,
+        "text": follow_up.prompt,
+        "context": {
+            "prompt": follow_up.prompt,
+            "addedFiles": [],
+            "fileAttachments": [],
+            "ideContext": null,
+            "imageAttachments": [],
+            "workspaceRoots": [follow_up.cwd]
+        },
+        "cwd": follow_up.cwd,
+        "createdAt": SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis() as u64
+    })
+}
+
+fn cdp_host(target: &ControlTarget) -> Result<&str, String> {
+    target
+        .host_id
+        .as_deref()
+        .filter(|host| !host.trim().is_empty())
+        .ok_or_else(|| "The Codex task host is unavailable".to_owned())
+}
+
+fn prepare_follow_up(target: &ControlTarget, prompt: &str) -> Result<PreparedFollowUp, String> {
+    let prompt = prompt.trim().to_owned();
     if prompt.is_empty() {
         return Err("follow-up cannot be empty".into());
     }
     if prompt.chars().count() > 16_000 {
         return Err("follow-up is too long".into());
     }
-    let client_message_id = uuid::Uuid::new_v4().to_string();
-    let restore_id = uuid::Uuid::new_v4().to_string();
     let cwd = target
         .cwd
         .as_deref()
         .filter(|cwd| !cwd.trim().is_empty())
-        .ok_or_else(|| "The Codex task workspace is unavailable".to_owned())?;
-    let input = json!([{ "type": "text", "text": prompt, "text_elements": [] }]);
+        .ok_or_else(|| "The Codex task workspace is unavailable".to_owned())?
+        .to_owned();
+    Ok(PreparedFollowUp {
+        input: json!([{ "type": "text", "text": prompt, "text_elements": [] }]),
+        prompt,
+        client_message_id: uuid::Uuid::new_v4().to_string(),
+        cwd,
+    })
+}
+
+pub(crate) fn build_follow_up(
+    target: &ControlTarget,
+    prompt: &str,
+) -> Result<(String, Value), String> {
+    let follow_up = prepare_follow_up(target, prompt)?;
     let steer = json!({
         "conversationId": target.conversation_id,
-        "clientUserMessageId": client_message_id,
-        "input": input,
+        "clientUserMessageId": follow_up.client_message_id,
+        "input": follow_up.input,
         "serviceTier": null,
         "attachments": [],
-        "restoreMessage": {
-            "id": restore_id,
-            "text": prompt,
-            "context": {
-                "prompt": prompt,
-                "addedFiles": [],
-                "fileAttachments": [],
-                "ideContext": null,
-                "imageAttachments": [],
-                "workspaceRoots": [cwd]
-            },
-            "cwd": cwd,
-            "createdAt": SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_millis() as u64
-        }
+        "restoreMessage": restore_message(&follow_up, uuid::Uuid::new_v4().to_string())
     });
     Ok(("thread-follower-steer-turn".into(), steer))
+}
+
+/// Build the live-proven Pets `Rf('send-follow-up-message', …)` envelope.
+///
+/// `cwd` is intentionally not emitted, but `prepare_follow_up` still requires it
+/// as a native same-workspace gate before the App-local manager receives a turn.
+pub(crate) fn build_cdp_ready_params(
+    target: &ControlTarget,
+    prompt: &str,
+) -> Result<Value, String> {
+    let follow_up = prepare_follow_up(target, prompt)?;
+    let host_id = cdp_host(target)?;
+    Ok(json!({
+        "hostId": host_id,
+        "conversationId": target.conversation_id,
+        "prompt": follow_up.prompt,
+        "serviceTier": null,
+    }))
+}
+
+/// Build the live-proven Pets `Rf('steer-turn-for-host', …)` envelope.
+pub(crate) fn build_cdp_steer_params(
+    target: &ControlTarget,
+    prompt: &str,
+) -> Result<Value, String> {
+    let follow_up = prepare_follow_up(target, prompt)?;
+    let host_id = cdp_host(target)?;
+    Ok(json!({
+        "hostId": host_id,
+        "conversationId": target.conversation_id,
+        "input": follow_up.input,
+        "serviceTier": null,
+        "attachments": [],
+        "restoreMessage": restore_message(&follow_up, uuid::Uuid::new_v4().to_string())
+    }))
+}
+
+pub(crate) fn build_ready_follow_up(
+    target: &ControlTarget,
+    prompt: &str,
+) -> Result<(String, Value), String> {
+    let follow_up = prepare_follow_up(target, prompt)?;
+    let start = json!({
+        "conversationId": target.conversation_id,
+        "turnStartParams": {
+            "input": follow_up.input,
+            "cwd": follow_up.cwd,
+            "clientUserMessageId": follow_up.client_message_id,
+            "serviceTier": null,
+            "attachments": []
+        }
+    });
+    Ok(("thread-follower-start-turn".into(), start))
 }
 
 #[cfg(test)]
 mod tests {
     use super::{
-        ControlTarget, PendingKind, build_control_request, build_follow_up, parse_controls,
+        ControlTarget, PendingKind, build_cdp_ready_params, build_cdp_steer_params,
+        build_control_request, build_follow_up, build_ready_follow_up, parse_controls,
     };
     use serde_json::json;
     use std::collections::HashMap;
@@ -723,5 +810,76 @@ mod tests {
             cwd: None,
         };
         assert!(build_follow_up(&target, "continue").is_err());
+        assert!(build_ready_follow_up(&target, "continue").is_err());
+    }
+
+    #[test]
+    fn ready_follow_up_builds_a_start_turn_request() {
+        let target = ControlTarget {
+            conversation_id: "conversation".into(),
+            owner_client_id: "owner".into(),
+            host_id: Some("host".into()),
+            cwd: Some("/workspace".into()),
+        };
+        let (method, params) = build_ready_follow_up(&target, " continue ").unwrap();
+        assert_eq!(method, "thread-follower-start-turn");
+        assert_eq!(params["conversationId"], "conversation");
+        assert_eq!(params["turnStartParams"]["input"][0]["text"], "continue");
+        assert_eq!(params["turnStartParams"]["cwd"], "/workspace");
+        assert!(
+            params["turnStartParams"]["clientUserMessageId"]
+                .as_str()
+                .is_some_and(|id| !id.is_empty())
+        );
+    }
+
+    #[test]
+    fn cdp_ready_params_use_prompt_and_exact_native_host() {
+        let target = ControlTarget {
+            conversation_id: "conversation".into(),
+            owner_client_id: "owner".into(),
+            host_id: Some("local".into()),
+            cwd: Some("/workspace".into()),
+        };
+        let params = build_cdp_ready_params(&target, " continue ").unwrap();
+        assert_eq!(params["conversationId"], "conversation");
+        assert_eq!(params["hostId"], "local");
+        assert_eq!(params["prompt"], "continue");
+        assert!(params.get("input").is_none());
+        assert!(params.get("cwd").is_none());
+    }
+
+    #[test]
+    fn cdp_steer_params_match_rf_restore_shape() {
+        let target = ControlTarget {
+            conversation_id: "conversation".into(),
+            owner_client_id: "owner".into(),
+            host_id: Some("local".into()),
+            cwd: Some("/workspace".into()),
+        };
+        let params = build_cdp_steer_params(&target, "steer").unwrap();
+        assert_eq!(params["hostId"], "local");
+        assert_eq!(params["input"][0]["text"], "steer");
+        assert_eq!(params["restoreMessage"]["cwd"], "/workspace");
+        assert!(params["attachments"].as_array().is_some_and(Vec::is_empty));
+        assert!(params.get("prompt").is_none());
+    }
+
+    #[test]
+    fn cdp_envelopes_fail_closed_without_workspace_or_host() {
+        let no_workspace = ControlTarget {
+            conversation_id: "conversation".into(),
+            owner_client_id: "owner".into(),
+            host_id: Some("local".into()),
+            cwd: None,
+        };
+        assert!(build_cdp_ready_params(&no_workspace, "continue").is_err());
+        let no_host = ControlTarget {
+            cwd: Some("/workspace".into()),
+            host_id: None,
+            ..no_workspace
+        };
+        assert!(build_cdp_ready_params(&no_host, "continue").is_err());
+        assert!(build_cdp_steer_params(&no_host, "continue").is_err());
     }
 }

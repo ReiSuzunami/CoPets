@@ -2,9 +2,63 @@
 
 Notable user-visible changes are recorded here. The project follows Semantic Versioning and the release rules in [`docs/maintenance/updating.md`](docs/maintenance/updating.md).
 
-The current private prerelease is `v0.1.0`. No notarized public release has been published.
+The current public prerelease is `v0.1.0`. No notarized release has been published.
 
 ## Unreleased
+
+- Added **Restart Codex with bridge** to the compact experimental Settings disclosure. It requires a
+  warning confirmation, then accepts exactly one same-user normal official Codex App, revalidates it
+  before a graceful close request, waits boundedly for that App to exit, and reuses the existing
+  loopback CDP launcher. It rejects tracked, already-CDP, stale, zero, and multiple App candidates;
+  it never force-kills Codex, chooses among multiple Apps, or silently falls back to a normal launch.
+- Added **Connect existing** for a Codex App that was already started with a loopback CDP port, so
+  it can become an experimental bridge session without restarting Codex. Automatic connection
+  accepts exactly one same-user official App candidate; a custom port is required when ambiguous.
+  CoPets verifies the App process, IPv4 loopback listener, renderer, and `Rf` fingerprint before
+  Ready and before every send; listener loss returns the bridge to standard IPC controls.
+- Fixed existing-CDP attachment discovery and readiness: automatic Connect now identifies the
+  same-user official App from its command line rather than its mutable macOS display name; Connect
+  and Retry retry short renderer/DevTools probes inside their one hard deadline and correctly accept
+  a complete DevTools HTTP response without waiting for its persistent socket to close. External
+  listener monitoring begins only after the bridge reaches Ready. A transient startup probe can no
+  longer revoke the endpoint mid-verify.
+- Cold bridge readiness now prefers the main Codex renderer and fingerprints bounded renderer pages
+  concurrently under one hard native deadline, avoiding an avatar-overlay probe delaying a ready page.
+- Bounded experimental bridge launch and retry verification across listener, HTTP, WebSocket, and
+  renderer checks, so a stalled DevTools request resolves to Unavailable instead of leaving
+  Settings on Launching indefinitely.
+- Added a safe **Retry verification** action after a delayed experimental bridge readiness check.
+  It revalidates only the same live tracked Codex PID and private loopback port; it cannot start
+  another App, attach to an arbitrary URL, or send a follow-up.
+- Made experimental bridge setup a compact, collapsed settings disclosure. Its status remains
+  visible without covering the normal pet and package controls; the port picker and launch action
+  appear only when explicitly opened.
+- Made inline settings the topmost pet-window layer, above current conversation bubbles and controls.
+- Added experimental Codex CDP bridge launch with automatic or custom loopback port. Verified Pets
+  `Rf` dispatch can send selected Ready follow-up and active Steer without a fresh IPC owner;
+  approval and stop remain IPC-only. CoPets tracks a launched or explicitly verified existing App
+  PID and requires it to own the loopback listener before readiness and each send. Runtime ports,
+  PIDs, targets, prompts, and private IDs are not persisted.
+- Hardened experimental CDP bridge readiness against current Codex bundle drift: guarded ESM-export
+  discovery now skips a throwing unrelated export, and the no-content `Rf` probe accepts only its two
+  fixed, non-sending validation rejections.
+
+### Added
+
+- Ready completed Codex tasks can now accept an explicit follow-up that starts their next turn
+  through the selected exact owner. Active-turn steering remains separate and never falls back to a
+  new turn.
+- Ready follow-up owner recovery now retains the exact host from its successfully written refresh
+  when Codex omits `hostId` from that replacement snapshot; it still rejects another task or host.
+- Known selected and background Codex tasks now retain native follower registration state across
+  task switches and CoPets IPC reconnects, without persisting transcript data or exposing background
+  task content.
+- Pets now render a small translucent ground shadow behind the loaded sprite.
+
+### Removed
+
+- Withdrawn the experimental cloned-Codex Resume Lab. CoPets now pairs only with the unmodified
+  official Codex App and never sends a private resume request or patches a Codex bundle.
 
 ## [0.1.0] - 2026-07-25
 
@@ -33,6 +87,20 @@ The current private prerelease is `v0.1.0`. No notarized public release has been
 
 ### Changed
 
+- A newly foreground-selected Working or Ready task now gets one bounded owner-discovery window
+  before follow-up authorization fails. It accepts only that task's fresh IPC owner snapshot and
+  never falls back to a background owner; unavailable-owner guidance now states that the selected
+  task has no live owner instead of implying a remote-connection cause.
+- CoPets now selects the direct foreground view-activity signal ahead of the sidebar owner-route
+  hint. Initial, newly discovered, and reset app-log tails are merged by UTC event time behind a
+  retained watermark rather than log-file modification time, preventing a historical file written
+  later from pinning the pet to a task that Codex has already switched away from.
+- Selected Working tasks now keep their Steer arrow visible while the exact Codex owner reconnects;
+  sending remains fail-closed until that owner is current and validated.
+- Completed tasks now keep their Continue arrow visible while their exact Codex owner reconnects;
+  starting the next turn remains fail-closed until that owner is current and validated.
+- Retrying a stale selected follow-up now reannounces only its exact conversation/host follower
+  registration before dispatch, instead of immediately returning a reconnecting error.
 - The application and installer now use the yellow transparent paper-cloud icon across the bundle,
   Finder, README, and DMG.
 - Product identity is now CoPets across the app, package metadata, documentation, signed bundle,
@@ -62,8 +130,11 @@ The current private prerelease is `v0.1.0`. No notarized public release has been
   weaker unknown activity and unindexed historical routes remain rejected.
 - Codex owner-route resets now release stale selection authority, so switching from an indexed task
   to a projectless foreground task no longer leaves CoPets pinned to the previous task.
-- Stale-owner steering retries now stop when selection or lifecycle changes and require the refreshed
-  conversation, host, and owner to match before dispatch.
+- Stale-owner follow-up retries now stop when selection or lifecycle changes and require an explicit
+  written follow refresh plus a matching conversation/host state snapshot before dispatch. A valid
+  refreshed snapshot may retain the same owner only after that recovery barrier.
+- A second `no client found` follow-up result now marks the target stale and explains that Codex must
+  resume its unavailable owner instead of surfacing the private router error unchanged.
 - Targeted control responses now fail closed when the private IPC response omits or changes the
   exact owner identity.
 - Native IPC now verifies both the same-user Unix socket path and connected peer before sending its

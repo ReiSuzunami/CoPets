@@ -97,3 +97,18 @@ On 2026-07-24, macOS 26.5.2 arm64 ran ChatGPT App 26.721.31836 (build 5828) with
 This confirms that all three read-only diagnostic inputs remained available in that installed
 version after the source-identity hardening. It does not verify native reconnect behavior, control
 dispatch, signing, notarization, or the full selected/background-task integration matrix.
+
+## Re-verification: 2026-07-26 opt-in local CDP bridge
+
+The current product has an optional, user-configured experimental bridge in addition to normal
+same-user IPC observation. CoPets may launch, user-confirmedly restart, or explicitly connect one
+verified official same-user App. The official App—not CoPets—then owns a dynamically chosen IPv4
+loopback CDP listener. CoPets does not expose a listener, accepts no arbitrary host or endpoint from
+the WebView, retains runtime endpoint state only in native memory, and rechecks process/listener
+ownership before a bridge send.
+
+This increases the local attack surface of an intentionally instrumented App and remains
+version-sensitive, experimental, and outside any claim of OpenAI authorization. It does not alter
+the snapshot's legal uncertainty or turn private interfaces into supported APIs. Public documents
+must state the opt-in, loopback-only, same-user boundary and never publish live prompts, target IDs,
+raw payloads, process IDs, or working directories.

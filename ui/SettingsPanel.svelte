@@ -6,6 +6,10 @@
   import RotateCcw from "@lucide/svelte/icons/rotate-ccw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import X from "@lucide/svelte/icons/x";
+  import {
+    bridgeNeedsVerificationRetry,
+    bridgeSummaryLabel,
+  } from "./lib/cdp-bridge-settings.js";
 
   export let connected = false;
   export let onboardingVisible = false;
@@ -16,6 +20,9 @@
   export let managementNotice = "";
   export let actionError = "";
   export let submitting = "";
+  export let cdpTransport = "ipcOnly";
+  export let cdpPortMode = "automatic";
+  export let cdpCustomPort = "";
   export let onClose;
   export let onCompleteOnboarding;
   export let onSelectPet;
@@ -27,6 +34,12 @@
   export let onOpenPetsFolder;
   export let onRemoveSelectedPet;
   export let onResetWindowPlacement;
+  export let onCdpPortModeChange;
+  export let onCdpCustomPortChange;
+  export let onLaunchCdpBridge;
+  export let onRestartCodexWithBridge;
+  export let onConnectExistingCdp;
+  export let onRetryCdpVerification;
 </script>
 
 <section id="pet-settings" class="settings-panel" aria-label="Pet settings">
@@ -50,11 +63,109 @@
   {/if}
 
   {#if !connected}
-    <div class="settings-guidance">
-      <strong>Open Codex App and select a local task</strong>
-      <span>A Codex update may require a CoPets compatibility update.</span>
-    </div>
+    <p class="settings-connection-note" role="status">
+      <strong>Codex is not connected.</strong>
+      <span>Open a local task to activate controls.</span>
+    </p>
   {/if}
+
+  <details class="settings-row cdp-bridge">
+    <summary class="cdp-bridge-summary">
+      <span class="cdp-bridge-summary-copy">
+        <span class="cdp-bridge-title">Experimental bridge</span>
+        <span class="cdp-bridge-summary-status">{bridgeSummaryLabel(cdpTransport)}</span>
+      </span>
+      <span class="cdp-bridge-summary-action">
+        {cdpTransport === "cdpReady" ? "Manage" : "Set up"}
+        <span class="cdp-bridge-disclosure" aria-hidden="true">›</span>
+      </span>
+    </summary>
+    <div class="cdp-bridge-details">
+      <p class="cdp-bridge-copy">
+        Launch, restart, or connect a local CDP Codex. This opens or uses a private debug port,
+        not an official OpenAI interface.
+      </p>
+      {#if bridgeNeedsVerificationRetry(cdpTransport)}
+        <p class="cdp-bridge-copy">
+          CoPets re-checks only the same verified Codex process.
+        </p>
+        <button
+          class="settings-action cdp-retry"
+          type="button"
+          disabled={Boolean(submitting)}
+          on:click={onRetryCdpVerification}
+        >{submitting === "cdp-verify" ? "Verifying…" : "Retry verification"}</button>
+      {/if}
+      <fieldset class="cdp-port-mode">
+        <legend class="visually-hidden">Bridge port mode</legend>
+        <label class:cdp-port-mode-active={cdpPortMode === "automatic"}>
+          <input
+            class="cdp-port-mode-input"
+            type="radio"
+            name="cdp-port-mode"
+            checked={cdpPortMode === "automatic"}
+            on:change={() => onCdpPortModeChange("automatic")}
+          />
+          <span>Automatic</span>
+        </label>
+        <label class:cdp-port-mode-active={cdpPortMode === "custom"}>
+          <input
+            class="cdp-port-mode-input"
+            type="radio"
+            name="cdp-port-mode"
+            checked={cdpPortMode === "custom"}
+            on:change={() => onCdpPortModeChange("custom")}
+          />
+          <span>Custom port</span>
+        </label>
+      </fieldset>
+      {#if cdpPortMode === "custom"}
+        <label class="cdp-custom-port" for="cdp-custom-port">
+          <span>Loopback port</span>
+          <input
+            id="cdp-custom-port"
+            type="number"
+            inputmode="numeric"
+            min="1024"
+            max="65535"
+            step="1"
+            placeholder="1024–65535"
+            value={cdpCustomPort}
+            on:input={(event) => onCdpCustomPortChange(event.currentTarget.value)}
+          />
+        </label>
+      {/if}
+      <div class="cdp-bridge-actions">
+        <button
+          class="settings-action cdp-launch"
+          type="button"
+          disabled={Boolean(submitting)}
+          on:click={onLaunchCdpBridge}
+        >{submitting === "cdp-bridge" ? "Launching…" : "Launch Codex"}</button>
+        <button
+          class="settings-action cdp-connect"
+          type="button"
+          disabled={Boolean(submitting)}
+          on:click={onConnectExistingCdp}
+        >{submitting === "cdp-connect" ? "Connecting…" : "Connect existing"}</button>
+      </div>
+      {#if cdpTransport === "ipcOnly"}
+        <button
+          class="settings-action cdp-restart"
+          type="button"
+          disabled={Boolean(submitting)}
+          on:click={onRestartCodexWithBridge}
+        >{submitting === "cdp-restart" ? "Restarting…" : "Restart Codex with bridge"}</button>
+      {/if}
+      <span class="cdp-bridge-status" aria-live="polite">
+        {cdpTransport === "cdpReady"
+          ? "Bridge ready for this CoPets session."
+          : cdpTransport === "cdpDegraded"
+            ? "Bridge unavailable. Standard IPC controls remain active."
+            : "Standard IPC remains default until you launch or connect."}
+      </span>
+    </div>
+  </details>
 
   <div class="settings-row">
     <label for="pet-selection">Pet</label>

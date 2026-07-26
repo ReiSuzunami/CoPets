@@ -74,7 +74,14 @@ function checkMetadata(file, source) {
 }
 
 const docs = (await walk(docsRoot)).sort();
-const topLevel = ["README.md", "AGENTS.md", "CLAUDE.md", "CONTRIBUTING.md", "CHANGELOG.md"].map((name) => path.join(root, name));
+const topLevel = [
+  "README.md",
+  "README.zh-CN.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+  "CONTRIBUTING.md",
+  "CHANGELOG.md",
+].map((name) => path.join(root, name));
 
 for (const file of [...topLevel, ...docs]) {
   const source = await readFile(file, "utf8");

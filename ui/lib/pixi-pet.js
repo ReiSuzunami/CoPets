@@ -1,5 +1,5 @@
 import "pixi.js/unsafe-eval";
-import { Application, Rectangle, Sprite, Texture } from "pixi.js";
+import { Application, Graphics, Rectangle, Sprite, Texture } from "pixi.js";
 import {
   ANIMATIONS,
   advanceAnimationFrame,
@@ -14,6 +14,9 @@ export class PixiPet {
   constructor(container, { reducedMotion = false } = {}) {
     this.container = container;
     this.app = new Application();
+    this.shadow = new Graphics();
+    this.shadow.eventMode = "none";
+    this.shadow.visible = false;
     this.sprite = new Sprite();
     this.atlas = null;
     this.textures = new Map();
@@ -39,6 +42,7 @@ export class PixiPet {
     this.app.canvas.setAttribute("aria-label", "Animated Codex pet");
     this.container.appendChild(this.app.canvas);
     this.sprite.anchor.set(0.5, 1);
+    this.app.stage.addChild(this.shadow);
     this.app.stage.addChild(this.sprite);
     this.app.ticker.add((ticker) => this.tick(ticker.deltaMS));
     this.layout();
@@ -94,6 +98,8 @@ export class PixiPet {
     this.lookTexture = null;
     this.frame = 0;
     this.elapsed = 0;
+    this.drawShadow();
+    this.shadow.visible = true;
     this.sprite.visible = true;
     this.applyFrame();
     this.layout();
@@ -119,6 +125,8 @@ export class PixiPet {
     this.lookTexture = null;
     this.frame = 0;
     this.elapsed = 0;
+    this.shadow.clear();
+    this.shadow.visible = false;
     this.sprite.visible = false;
     this.sprite.texture = Texture.EMPTY;
     this.destroyTextureSet(previousTextures, previousLookTextures, previousAtlas);
@@ -216,6 +224,14 @@ export class PixiPet {
     this.applyFrame();
   };
 
+  drawShadow() {
+    if (!this.cellWidth || !this.cellHeight) return;
+    this.shadow
+      .clear()
+      .ellipse(0, 0, this.cellWidth * 0.34, this.cellHeight * 0.045)
+      .fill({ color: 0x000000, alpha: 0.16 });
+  }
+
   layout() {
     if (!this.cellWidth || !this.cellHeight) return;
     const width = this.app.screen.width;
@@ -223,6 +239,8 @@ export class PixiPet {
     const scale = Math.min((width - 20) / this.cellWidth, (height - 34) / this.cellHeight);
     this.sprite.scale.set(scale);
     this.sprite.position.set(width / 2, height - 10);
+    this.shadow.scale.set(scale);
+    this.shadow.position.set(width / 2, height - 10 - this.cellHeight * scale * 0.06);
   }
 
   destroy() {

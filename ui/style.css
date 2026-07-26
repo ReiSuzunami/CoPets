@@ -329,7 +329,7 @@ input::placeholder { color: var(--ui-muted); opacity: 1; }
 
 .settings-panel {
   position: absolute;
-  z-index: 13;
+  z-index: 40;
   bottom: 44px;
   right: 8px;
   display: grid;
@@ -378,7 +378,6 @@ input::placeholder { color: var(--ui-muted); opacity: 1; }
 }
 .settings-empty { min-width: 0; color: var(--ui-muted); font-size: 10px; line-height: 1.35; }
 .settings-guide,
-.settings-guidance,
 .import-preview,
 .package-issues {
   display: grid;
@@ -390,14 +389,90 @@ input::placeholder { color: var(--ui-muted); opacity: 1; }
   line-height: 1.35;
 }
 .settings-guide strong,
-.settings-guidance strong,
 .import-preview strong,
 .package-issues > strong { font-size: 10px; font-weight: 600; }
 .settings-guide span,
-.settings-guidance span,
 .import-preview span,
 .package-issues span { color: var(--ui-muted); }
 .settings-guide button { justify-self: start; min-height: 23px; margin-top: 2px; padding: 3px 7px; border: 0; font-size: 9px; }
+.settings-connection-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px 4px;
+  margin: 0;
+  padding: 0 1px;
+  color: var(--ui-muted);
+  font-size: 9px;
+  line-height: 1.35;
+}
+.settings-connection-note strong { color: var(--ui-ink); font-weight: 550; }
+.cdp-bridge {
+  gap: 0;
+  border-top: 1px solid var(--ui-border);
+}
+.cdp-bridge-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 1px;
+  cursor: pointer;
+  list-style: none;
+}
+.cdp-bridge-summary::-webkit-details-marker { display: none; }
+.cdp-bridge-summary:hover { background: var(--field-bg); border-radius: var(--radius-sm); }
+.cdp-bridge-summary-copy { display: grid; min-width: 0; gap: 1px; }
+.cdp-bridge-title { color: var(--ui-ink); font-size: 10px; font-weight: 550; line-height: 1.2; }
+.cdp-bridge-summary-status { color: var(--ui-muted); font-size: 9px; line-height: 1.2; }
+.cdp-bridge-summary-action { display: inline-flex; align-items: center; gap: 3px; color: var(--ui-muted); font-size: 9px; }
+.cdp-bridge-disclosure { color: var(--ui-ink); font-size: 14px; line-height: .8; transition: transform 120ms ease; }
+.cdp-bridge[open] .cdp-bridge-disclosure { transform: rotate(90deg); }
+.cdp-bridge-details {
+  display: grid;
+  gap: 5px;
+  padding: 6px 1px 1px;
+  border-top: 1px solid var(--ui-border);
+  font-size: 9px;
+  line-height: 1.35;
+}
+.cdp-bridge-copy { margin: 0; color: var(--ui-muted); }
+.cdp-port-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+.cdp-port-mode label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 26px;
+  padding: 3px 5px;
+  color: var(--ui-muted);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius-sm);
+  background: var(--field-bg);
+  cursor: pointer;
+  font-size: 9px;
+}
+.cdp-port-mode label:hover { background: var(--control-hover); }
+.cdp-port-mode label.cdp-port-mode-active { color: var(--ui-ink); border-color: var(--focus-ring-subtle); background: var(--control-bg); font-weight: 550; }
+.cdp-port-mode-input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.cdp-port-mode-input:focus-visible + span { outline: 2px solid var(--focus-ring); outline-offset: 4px; border-radius: var(--radius-sm); }
+.cdp-custom-port { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 7px; color: var(--ui-muted); font-size: 9px; }
+.cdp-custom-port input { min-width: 0; min-height: 26px; padding: 4px 6px; color: var(--ui-ink); background: var(--field-bg); border: 1px solid var(--ui-border); border-radius: var(--radius-sm); font-size: 10px; }
+.cdp-bridge-actions { display: flex; gap: 5px; }
+.cdp-bridge-actions .settings-action { flex: 1 1 0; }
+.cdp-launch { width: 100%; }
+.cdp-bridge-actions .cdp-launch { width: auto; }
+.cdp-restart { width: 100%; }
+.cdp-bridge-status { min-height: 1.35em; color: var(--ui-muted); }
 .settings-actions { display: flex; flex-wrap: wrap; gap: 5px; }
 .settings-action {
   display: inline-flex;

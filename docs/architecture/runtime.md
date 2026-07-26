@@ -3,7 +3,7 @@
 > Status: Normative
 > Owns: Runtime modules, interfaces, seams, data flow, trust boundary, and degradation behavior
 > Update when: Observation sources, Tauri commands/events, state ownership, renderer ownership, or privacy flow changes
-> Last verified: 2026-07-24
+> Last verified: 2026-07-26
 
 ## Scope
 
@@ -64,7 +64,7 @@ session, and app-log adapters concurrently.
 | --- | --- | --- | --- |
 | IPC follower | Framed messages from the current-user Unix socket | Owner snapshots, authoritative active/terminal state, pending controls | Rejects symlink/non-socket/foreign-owner paths and foreign peers before initialization; controls remain unavailable |
 | Session tail | Same-user, non-symlink append-only session JSONL | Turn lifecycle and bounded display context | Existing selected state remains; no backward transcript scan |
-| App-log selector | Same-user, non-symlink owner routes and accepted activity records | Selected task candidate | Keeps last confirmed selection rather than choosing noisy background work |
+| App-log selector | Same-user, non-symlink owner routes and accepted activity records | Selected task candidate | Focused, visible view activity outranks the sidebar-router route hint; every first-read/reset tail is ordered by event timestamp and bounded by a selection-event watermark |
 | Thread index | Same-user, non-symlink read-only local index | Ordinary task membership for selection filtering | Strict foreground UUID activity can still confirm a projectless conversation absent from this index |
 
 Session and app-log adapters share [`file_tail.rs`](../../src-tauri/src/file_tail.rs), whose cursor
@@ -91,8 +91,9 @@ known-thread activity facts without selecting a task; a missing thread index fai
 [`runtime.rs`](../../src-tauri/src/observer/runtime.rs) owns `RuntimeState`, `RuntimeSnapshot`,
 `ThreadLifecycle`, authorization predicates, and `reduce_lifecycle`.
 Each task is one `ThreadRecord` containing lifecycle, display context, control owner, pending
-requests, and owner-refresh state. Session records, IPC snapshots, selection, and connectivity enter
-through `RuntimeEvent`; one reducer transaction updates the record before deriving WebView effects.
+requests, owner-refresh state, and native follower-registration memory. Session records, IPC
+snapshots, selection, and connectivity enter through `RuntimeEvent`; one reducer transaction updates
+the record before deriving WebView effects.
 
 Its interface guarantees:
 
@@ -102,6 +103,9 @@ Its interface guarantees:
 4. An authoritative IPC active snapshot or a new question may start a new epoch.
 5. Equivalent state updates do not restart presentation animation.
 6. Renderer payloads contain bounded previews and opaque identifiers, never raw private snapshots.
+7. Known task controls retain their exact native conversation/host target across task switches. The
+   IPC adapter reannounces those follows after its own reconnect and answers exact App status
+   requests, while background records remain outside the WebView projection.
 
 Detailed ordering and selection rules belong to [multi-session arbitration](multi-session-state.md).
 Its lifecycle census is the canonical state vocabulary.
@@ -114,10 +118,55 @@ compact control models. Command handlers in
 [`runtime.rs`](../../src-tauri/src/observer/runtime.rs) to revalidate selected task, live owner,
 lifecycle, and request identity immediately before dispatch.
 
-The interface exposes explicit approval/answer, steering, and stop operations. Capability
-projection and dispatch share the selected `working` task, connected IPC, and exact non-stale owner
-predicate. There is no global fallback owner. Steering builds only a steer request; it never starts
-a new turn or activates Codex App.
+The interface exposes explicit approval/answer, steering, stop, and user-initiated follow-up
+operations. Approval, answer, and stop always share the selected `working` task, connected IPC,
+and exact non-stale owner predicate. In default `IpcOnly`/`CdpDegraded` transport, active-turn
+steering and Ready follow-up retain that same predicate; Ready additionally requires terminal
+`completed`. There is no global fallback owner. In an explicit CoPets-launched or user-attached
+local `CdpReady` session, only Ready and active Steer may instead call the verified in-window Pets
+`Rf` handler using the
+same selected native conversation/host/workspace target, without a fresh follower owner. See the
+[CDP channel contract](cdp-follow-up-channel.md). A failed steer never changes into a new turn,
+and Channel B never falls back to IPC or starts Codex from a send action.
+
+The control projection keeps a selected `working` task's Steer affordance and terminal `completed`
+task's Continue affordance visible while their owner reconnects. In IPC transport these are
+presentation-only signals; sending still requires the connected, exact, non-stale owner predicate.
+In `CdpReady`, the same visible control can authorize only the selected retained native target and
+only through the `Rf` path; no target, host, workspace, selection, transport-generation, or
+tracked official-PID/listener mismatch is recoverable by fallback.
+
+If an explicit foreground refresh has selected an otherwise eligible task before its first IPC
+owner snapshot arrives, the router waits for that exact selected task for at most three seconds.
+It accepts only its matching fresh owner snapshot; a selection or lifecycle change, a background
+snapshot, or an elapsed window fails closed and sends no request.
+
+When a follower reports its owner as stale, the IPC control router marks that exact target pending,
+writes an explicit follow refresh to the IPC stream, then arms recovery only after the local write
+succeeds. Recovery accepts only a subsequent state snapshot for the same selected conversation and
+host. The App may legitimately reissue that snapshot with the same owner identity, so same-owner
+acceptance is limited to this armed recovery phase; pre-existing or unrelated snapshots remain
+rejected. A later explicit user retry of that same stale selected target reissues this exact refresh
+before it considers any follower request; it never reuses the stale owner directly. Selection and
+lifecycle are revalidated again before dispatch. IPC follow-up dispatch carries that frozen native
+guard to the writer, which rechecks selection, lifecycle, exact owner, IPC connectivity, transport,
+and generation immediately before emitting its frame.
+
+Follower retention is native process memory rather than a transcript cache. The IPC adapter keeps
+every known task's exact conversation/host registration through background switches, reannounces it
+after CoPets reconnects, and replies only to an exact matching follower-status request. It does not
+persist raw IDs or content, expose background state to the WebView, or create an owner. CoPets never
+calls, emulates, patches, or automates the App's private resume operation. When the selected owner
+remains unavailable after its bounded exact follow refresh, the control stays stale and tells the user
+to open that exact task in the unmodified Codex App before retrying. This stale-owner recovery does
+not apply to an already verified `CdpReady` send; Channel B revalidates the selected retained target,
+its bridge generation, and the tracked official App PID's ownership of the loopback listener
+instead. CoPets still requires a fresh selected owner and an immediate
+final selection check before it sends an IPC follow-up.
+
+After a written exact `following:true` refresh, a state snapshot that omits `hostId` may use only
+that just-written conversation/host registration. It cannot borrow a host from another task, bypass
+the armed-refresh phase, or weaken source-owner validation.
 
 ### Pet package manager
 
@@ -130,6 +179,13 @@ The package contract is documented in [Pet packages](../protocol/pet-package.md)
 ### Native shell
 
 [`src-tauri/src/lib.rs`](../../src-tauri/src/lib.rs) builds the Tauri app, registers commands, owns the menu-bar status item, starts observation, performs native dragging, and emits focus-independent pointer hover changes. The status item toggles pet visibility, creates an independent settings window at screen center on demand, and quits the app. Opening settings focuses only that window; a hidden pet remains hidden and its saved geometry is untouched. Closing the detached window destroys it so the next menu-bar request starts from a fresh visible window. The inline and detached settings surfaces are mutually exclusive: the menu-bar entry dismisses inline settings, while the pet entry destroys any detached window before opening locally. [`src-tauri/tauri.conf.json`](../../src-tauri/tauri.conf.json) owns the persistent pet-window definition and bundle configuration, including first-mouse acceptance so an inactive pet can begin dragging on the first press; `show_settings_window` owns detached-window creation and geometry.
+
+The CDP launcher is native-only. Standard **Launch Codex** never closes an existing App. A separate
+Settings-confirmed restart can select exactly one same-user official non-CDP App, revalidate that
+exact process immediately before one graceful `SIGTERM`, wait for it to exit, then reuse the ordinary
+loopback bridge launcher. It rejects zero, multiple, stale, or already-CDP processes, never force
+kills, never accepts a PID from the WebView, and never runs as a follow-up control fallback. See the
+[CDP channel contract](cdp-follow-up-channel.md) and [ADR 0007](../decisions/0007-user-confirmed-cdp-restart.md).
 
 Window position and size are stored by [`ui/PetWindow.svelte`](../../ui/PetWindow.svelte).
 [`ui/lib/window-resize.js`](../../ui/lib/window-resize.js) owns monitor normalization and
@@ -208,7 +264,7 @@ Exact limits belong to constants and tests in the observer/control implementatio
 
 | Failure | Expected behavior |
 | --- | --- |
-| IPC unavailable, untrusted, or owner stale | Hide controls; continue best-effort lifecycle from trusted JSONL |
+| IPC unavailable, untrusted, or owner stale | Withhold actionable controls; retain the selected working/Ready follow-up affordance as a recovery entry and continue best-effort lifecycle from trusted JSONL |
 | Activity schema unavailable | Keep last confirmed selected task; reject unknown candidates |
 | Thread index missing a projectless conversation | Accept only canonical-UUID active/focused/visible owner-stream evidence; otherwise keep the last selection |
 | Session tail unavailable | Keep current state; do not infer completion |

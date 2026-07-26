@@ -7,7 +7,11 @@
 
 ## Scope and source order
 
-This snapshot records local installed evidence plus official Pi sources. Local executable is `~/.bun/bin/pi`, symlinked to `@earendil-works/pi-coding-agent/dist/cli.js`; `pi --version` returned `0.80.3`. Package metadata declares Node `>=22.19.0`, package version `0.80.3`, repository `https://github.com/earendil-works/pi`, and exports extension types through `dist/index.d.ts` (`package.json`, `engines`, `exports`).
+This snapshot records local installed evidence plus official Pi sources. A locally installed Pi CLI was
+resolved to `@earendil-works/pi-coding-agent/dist/cli.js`; `pi --version` returned `0.80.3`. Package
+metadata declares Node `>=22.19.0`, package version `0.80.3`, repository
+`https://github.com/earendil-works/pi`, and exports extension types through `dist/index.d.ts`
+(`package.json`, `engines`, `exports`).
 
 Official sources: [extensions guide](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/extensions.md), [ExtensionAPI types](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/extensions/types.ts), [package manager guide](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/packages.md). Local counterparts are cited for the exact installed version.
 

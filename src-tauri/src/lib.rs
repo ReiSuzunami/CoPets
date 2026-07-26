@@ -1,3 +1,4 @@
+mod cdp;
 mod control;
 mod file_tail;
 mod local_trust;
@@ -229,6 +230,10 @@ pub fn run() {
             observer::commands::perform_control_action,
             observer::commands::dismiss_control_notification,
             observer::commands::send_follow_up,
+            observer::commands::launch_codex_with_cdp,
+            observer::commands::restart_codex_with_cdp,
+            observer::commands::connect_existing_codex_cdp,
+            observer::commands::retry_cdp_bridge,
             observer::commands::stop_current_task,
             get_drag_pointer_snapshot,
             get_window_hover_state,

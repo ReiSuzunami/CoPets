@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::OnceLock,
@@ -156,12 +157,83 @@ fn parse_owner_route(line: &str) -> Option<OwnerRoute> {
 #[derive(Default)]
 struct ConfirmedSelection {
     activity: Option<String>,
-    route: Option<String>,
+    route: Option<ConfirmedRoute>,
+}
+
+struct ConfirmedRoute {
+    conversation: String,
+    historical: bool,
+}
+
+struct InitialSelectionEvidence {
+    timestamp: Option<String>,
+    kind: InitialSelectionEvidenceKind,
+    order: usize,
+    line: String,
+}
+
+#[derive(Clone, Copy, Eq, Ord, PartialEq, PartialOrd)]
+enum InitialSelectionEvidenceKind {
+    Route,
+    Activity,
+}
+
+fn parse_log_timestamp(line: &str) -> Option<String> {
+    let timestamp = line.get(..24)?;
+    let bytes = timestamp.as_bytes();
+    let digit = |index: usize| bytes[index].is_ascii_digit();
+    (bytes[4] == b'-'
+        && bytes[7] == b'-'
+        && bytes[10] == b'T'
+        && bytes[13] == b':'
+        && bytes[16] == b':'
+        && bytes[19] == b'.'
+        && bytes[23] == b'Z'
+        && [0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18, 20, 21, 22]
+            .into_iter()
+            .all(digit))
+    .then(|| timestamp.to_owned())
+}
+
+fn selection_evidence_kind(line: &str) -> Option<InitialSelectionEvidenceKind> {
+    if parse_owner_route(line).is_some() {
+        Some(InitialSelectionEvidenceKind::Route)
+    } else if parse_view_activity(line).is_some() {
+        Some(InitialSelectionEvidenceKind::Activity)
+    } else {
+        None
+    }
+}
+
+impl InitialSelectionEvidence {
+    fn from_line(line: String, order: usize) -> Option<Self> {
+        let kind = selection_evidence_kind(&line)?;
+        Some(Self {
+            timestamp: parse_log_timestamp(&line),
+            kind,
+            order,
+            line,
+        })
+    }
+
+    fn compare(&self, other: &Self) -> Ordering {
+        let timestamp = match (&self.timestamp, &other.timestamp) {
+            (Some(left), Some(right)) => left.cmp(right),
+            (None, Some(_)) => Ordering::Less,
+            (Some(_), None) => Ordering::Greater,
+            (None, None) => Ordering::Equal,
+        };
+        timestamp
+            .then_with(|| self.kind.cmp(&other.kind))
+            .then_with(|| self.order.cmp(&other.order))
+    }
 }
 
 impl ConfirmedSelection {
     fn current(&self) -> Option<&String> {
-        self.route.as_ref().or(self.activity.as_ref())
+        self.activity
+            .as_ref()
+            .or_else(|| self.route.as_ref().map(|route| &route.conversation))
     }
 
     fn observe_activity(&mut self, activity: &ViewActivity, known: &HashSet<String>) -> bool {
@@ -172,16 +244,27 @@ impl ConfirmedSelection {
             return false;
         }
         let previous = self.current().cloned();
+        if self.route.as_ref().is_some_and(|route| route.historical) {
+            self.route = None;
+        }
         self.activity = Some(activity.conversation.clone());
         previous.as_ref() != self.current()
     }
 
-    fn observe_route(&mut self, conversation: &str, known: &HashSet<String>) -> bool {
+    fn observe_route(
+        &mut self,
+        conversation: &str,
+        known: &HashSet<String>,
+        historical: bool,
+    ) -> bool {
         if !known.contains(conversation) {
             return false;
         }
         let previous = self.current().cloned();
-        self.route = Some(conversation.to_owned());
+        self.route = Some(ConfirmedRoute {
+            conversation: conversation.to_owned(),
+            historical,
+        });
         previous.as_ref() != self.current()
     }
 
@@ -195,7 +278,21 @@ impl ConfirmedSelection {
     fn observe_line(&mut self, line: &str, known: &HashSet<String>) -> bool {
         if let Some(route) = parse_owner_route(line) {
             return match route {
-                OwnerRoute::Conversation(conversation) => self.observe_route(&conversation, known),
+                OwnerRoute::Conversation(conversation) => {
+                    self.observe_route(&conversation, known, false)
+                }
+                OwnerRoute::Clear => self.clear_route(),
+            };
+        }
+        parse_view_activity(line).is_some_and(|activity| self.observe_activity(&activity, known))
+    }
+
+    fn observe_initial_line(&mut self, line: &str, known: &HashSet<String>) -> bool {
+        if let Some(route) = parse_owner_route(line) {
+            return match route {
+                OwnerRoute::Conversation(conversation) => {
+                    self.observe_route(&conversation, known, true)
+                }
                 OwnerRoute::Clear => self.clear_route(),
             };
         }
@@ -209,6 +306,8 @@ pub(super) struct AppLogSelectionAdapter {
     known: HashSet<String>,
     known_refreshed: Option<SystemTime>,
     cursors: HashMap<PathBuf, AppendCursor>,
+    reconciled_paths: HashSet<PathBuf>,
+    selection_event_watermark: Option<String>,
     selected: ConfirmedSelection,
 }
 
@@ -226,6 +325,8 @@ impl AppLogSelectionAdapter {
             known: HashSet::new(),
             known_refreshed: None,
             cursors: HashMap::new(),
+            reconciled_paths: HashSet::new(),
+            selection_event_watermark: None,
             selected: ConfirmedSelection::default(),
         }
     }
@@ -244,9 +345,65 @@ impl AppLogSelectionAdapter {
         }
     }
 
+    fn advance_selection_event_watermark(&mut self, timestamp: Option<&str>) {
+        let Some(timestamp) = timestamp else {
+            return;
+        };
+        if self
+            .selection_event_watermark
+            .as_deref()
+            .is_none_or(|current| timestamp > current)
+        {
+            self.selection_event_watermark = Some(timestamp.to_owned());
+        }
+    }
+
+    fn observe_live_line(&mut self, line: &str) -> bool {
+        let kind = selection_evidence_kind(line);
+        let timestamp = kind.and_then(|_| parse_log_timestamp(line));
+        if timestamp.as_deref().is_some_and(|timestamp| {
+            self.selection_event_watermark
+                .as_deref()
+                .is_some_and(|current| timestamp < current)
+        }) {
+            return false;
+        }
+        let changed = self.selected.observe_line(line, &self.known);
+        if kind.is_some() {
+            self.advance_selection_event_watermark(timestamp.as_deref());
+        }
+        changed
+    }
+
+    fn reconcile_initial_evidence(&mut self, mut evidence: Vec<InitialSelectionEvidence>) {
+        evidence.sort_by(InitialSelectionEvidence::compare);
+        let floor = self.selection_event_watermark.clone();
+        let mut latest = floor.clone();
+        for item in &evidence {
+            if item
+                .timestamp
+                .as_ref()
+                .is_some_and(|timestamp| latest.as_ref().is_none_or(|current| timestamp > current))
+            {
+                latest = item.timestamp.clone();
+            }
+            let newer_than_floor = floor.as_ref().is_none_or(|floor| {
+                item.timestamp
+                    .as_ref()
+                    .is_some_and(|timestamp| timestamp > floor)
+            });
+            if newer_than_floor {
+                self.selected.observe_initial_line(&item.line, &self.known);
+            }
+        }
+        self.selection_event_watermark = latest;
+    }
+
     fn scan(&mut self, force_index_refresh: bool) -> bool {
         self.refresh_known_threads(force_index_refresh);
         let previous = self.selected.current().cloned();
+        let mut initial_evidence = Vec::new();
+        let mut initial_order = 0;
         for path in recent_files(&self.root, "log")
             .into_iter()
             .filter(|path| live_log(path))
@@ -258,13 +415,24 @@ impl AppLogSelectionAdapter {
                 .cursors
                 .entry(path.clone())
                 .or_insert_with(|| AppendCursor::new(size.saturating_sub(INITIAL_APP_LOG_TAIL)));
-            let Ok(lines) = cursor.read_appended(&path) else {
+            let Ok((lines, reset)) = cursor.read_appended_with_reset(&path) else {
                 continue;
             };
+            let initial_tail = reset || !self.reconciled_paths.contains(&path);
             for line in lines {
-                self.selected.observe_line(&line, &self.known);
+                if initial_tail {
+                    if let Some(evidence) = InitialSelectionEvidence::from_line(line, initial_order)
+                    {
+                        initial_order += 1;
+                        initial_evidence.push(evidence);
+                    }
+                } else {
+                    self.observe_live_line(&line);
+                }
             }
+            self.reconciled_paths.insert(path);
         }
+        self.reconcile_initial_evidence(initial_evidence);
         previous.as_ref() != self.selected.current()
     }
 
@@ -440,20 +608,20 @@ mod tests {
     }
 
     #[test]
-    fn owner_route_outweighs_background_runtime_activity() {
+    fn foreground_activity_outweighs_a_conflicting_owner_route_hint() {
         let known = HashSet::from(["foreground".to_owned(), "background".to_owned()]);
-        let Some(OwnerRoute::Conversation(foreground)) = parse_owner_route(
-            "IAB_LIFECYCLE received browser sidebar owner sync conversationId=client-new-thread:abc ownerRoutePath=/local/foreground windowId=1",
+        let Some(OwnerRoute::Conversation(background)) = parse_owner_route(
+            "IAB_LIFECYCLE received browser sidebar owner sync conversationId=client-new-thread:abc ownerRoutePath=/local/background windowId=1",
         ) else {
             panic!("expected a local conversation route");
         };
-        let background = parse_view_activity(
-            "thread_stream_view_activity_changed active=true conversationId=background rendererWindowFocused=true rendererWindowVisible=true rendererWindowId=1",
+        let foreground = parse_view_activity(
+            "thread_stream_view_activity_changed active=true conversationId=foreground rendererWindowFocused=true rendererWindowVisible=true rendererWindowId=1",
         )
         .unwrap();
         let mut selected = ConfirmedSelection::default();
-        assert!(selected.observe_route(&foreground, &known));
-        assert!(!selected.observe_activity(&background, &known));
+        assert!(selected.observe_activity(&foreground, &known));
+        assert!(!selected.observe_route(&background, &known, false));
         assert_eq!(selected.current().map(String::as_str), Some("foreground"));
         assert_eq!(
             parse_owner_route(
@@ -502,8 +670,103 @@ mod tests {
                 b"IAB_LIFECYCLE received browser sidebar owner sync ownerRoutePath=/local/second\n",
             )
             .unwrap();
-        assert_eq!(adapter.refresh_now().as_deref(), Some("second"));
+        assert_eq!(adapter.refresh_now().as_deref(), Some("first"));
+        OpenOptions::new()
+            .append(true)
+            .open(&log)
+            .unwrap()
+            .write_all(
+                b"thread_stream_view_activity_changed active=true conversationId=second rendererWindowFocused=true rendererWindowVisible=true\n",
+            )
+            .unwrap();
+        assert_eq!(adapter.poll_once().as_deref(), Some("second"));
         assert_eq!(adapter.poll_once(), None);
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn initial_tail_foreground_activity_supersedes_an_older_known_route() {
+        let root = std::env::temp_dir().join(format!("copets-selection-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let log = root.join("codex-desktop-test.log");
+        fs::write(
+            &log,
+            b"IAB_LIFECYCLE received browser sidebar owner sync ownerRoutePath=/local/old\nthread_stream_view_activity_changed active=true conversationId=new rendererWindowFocused=true rendererWindowVisible=true\n",
+        )
+        .unwrap();
+        let mut adapter = AppLogSelectionAdapter::new(root.clone(), root.join("missing.sqlite"));
+        adapter.known = HashSet::from(["old".to_owned(), "new".to_owned()]);
+        adapter.known_refreshed = Some(SystemTime::now());
+
+        assert_eq!(adapter.poll_once().as_deref(), Some("new"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn initial_tail_uses_event_timestamps_not_log_file_modification_order() {
+        let root = std::env::temp_dir().join(format!("copets-selection-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let newer_event = root.join("newer-event.log");
+        let older_event = root.join("older-event.log");
+        fs::write(
+            &newer_event,
+            b"2026-07-25T16:48:00.289Z info thread_stream_view_activity_changed active=true conversationId=new rendererWindowFocused=true rendererWindowVisible=true\n",
+        )
+        .unwrap();
+        fs::write(
+            &older_event,
+            b"2026-07-25T16:03:46.350Z info thread_stream_view_activity_changed active=true conversationId=old rendererWindowFocused=true rendererWindowVisible=true\n",
+        )
+        .unwrap();
+        let now = SystemTime::now();
+        fs::File::open(&newer_event)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(now - std::time::Duration::from_secs(2)))
+            .unwrap();
+        fs::File::open(&older_event)
+            .unwrap()
+            .set_times(fs::FileTimes::new().set_modified(now - std::time::Duration::from_secs(1)))
+            .unwrap();
+        let mut adapter = AppLogSelectionAdapter::new(root.clone(), root.join("missing.sqlite"));
+        adapter.known = HashSet::from(["old".to_owned(), "new".to_owned()]);
+        adapter.known_refreshed = Some(SystemTime::now());
+
+        assert_eq!(adapter.poll_once().as_deref(), Some("new"));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn new_or_rewritten_log_tails_cannot_overwrite_newer_foreground_activity() {
+        let root = std::env::temp_dir().join(format!("copets-selection-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&root).unwrap();
+        let current_log = root.join("current.log");
+        fs::write(
+            &current_log,
+            b"2026-07-25T16:48:00.289Z info thread_stream_view_activity_changed active=true conversationId=current rendererWindowFocused=true rendererWindowVisible=true\nextra padding so the rewrite is shorter\n",
+        )
+        .unwrap();
+        let mut adapter = AppLogSelectionAdapter::new(root.clone(), root.join("missing.sqlite"));
+        adapter.known =
+            HashSet::from(["current".to_owned(), "next".to_owned(), "stale".to_owned()]);
+        adapter.known_refreshed = Some(SystemTime::now());
+
+        assert_eq!(adapter.poll_once().as_deref(), Some("current"));
+
+        let next_log = root.join("next.log");
+        fs::write(
+            &next_log,
+            b"2026-07-25T16:49:00.289Z info thread_stream_view_activity_changed active=true conversationId=next rendererWindowFocused=true rendererWindowVisible=true\n",
+        )
+        .unwrap();
+        assert_eq!(adapter.poll_once().as_deref(), Some("next"));
+
+        fs::write(
+            &current_log,
+            b"2026-07-25T16:03:46.350Z info thread_stream_view_activity_changed active=true conversationId=stale rendererWindowFocused=true rendererWindowVisible=true\n",
+        )
+        .unwrap();
+        assert_eq!(adapter.poll_once(), None);
+        assert_eq!(adapter.refresh_now().as_deref(), Some("next"));
         fs::remove_dir_all(root).unwrap();
     }
 

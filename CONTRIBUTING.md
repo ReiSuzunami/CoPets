@@ -42,6 +42,9 @@ Private protocol, window, rendering, control, and release changes also require t
 - Ignore unknown private-schema data instead of guessing.
 - Keep official pet fields compatible; use the documented CoPets extension field for high-resolution assets.
 - Do not commit prompts, answers, credentials, raw payloads, or stable user identifiers.
+- By contributing an asset, represent that you have authority to contribute it under this repository's
+  MIT license. Add or update its provenance record; never add third-party material, private source
+  files, prompts, or working assets without a documented redistribution right.
 - Add an ADR for lasting interface, ownership, protocol, privacy, or dependency decisions.
 
 ## Pull request checklist

@@ -3,13 +3,13 @@
 > Status: Research snapshot
 > Owns: 2026-07-19 DevTools/CDP evidence; not current product contract
 > Update when: Preserve this snapshot; add a dated re-verification section or a new snapshot
-> Last verified: 2026-07-19
+> Last verified: 2026-07-26
 
 快照：2026-07-19；目标：评估已运行 ChatGPT/Codex App 的 Electron/Chromium WebView 是否可被外部 sidecar 读取、监听或改写。
 
 ## 结论
 
-- **无重启附着：当前生产实例不可行。** 外部 CDP 客户端需要目标主动暴露 DevTools endpoint，或宿主进程内调用 Electron `webContents` API。当前 PID 96117 无 remote-debugging 参数和 TCP listener；其启动日志明确为 `buildFlavor=prod allowDevtools=false allowInspectElement=false`。
+- **无重启附着：当次生产实例不可行。** 外部 CDP 客户端需要目标主动暴露 DevTools endpoint，或宿主进程内调用 Electron `webContents` API。当次进程无 remote-debugging 参数和 TCP listener；其启动日志明确为 `buildFlavor=prod allowDevtools=false allowInspectElement=false`。
 - **启动时 hook：已实测 CDP server 可打开。** 隔离临时 profile、临时 `CODEX_HOME` 下，以 `BUILD_FLAVOR=dev --remote-debugging-port=<loopback-port>` 启动同一 App binary，得到 Chrome 150、CDP 1.3 和 `DevTools listening`。这证明方案真实可用，不只是官方文档推断。
 - **当前实验尚未拿到 renderer target。** 首次 `/json/list` 返回 0 target；原因可能是查询过早或第二实例锁。现在只能确认 browser-level CDP endpoint，不能宣称已 hook 主 UI DOM/store。
 - **公开主题项目的真实启动方式已核对。** `Fei-Away/Codex-Dream-Skin` 的 macOS `start-dream-skin-macos.sh` 默认端口 `9341`，调用 `launch_codex_with_cdp`，并再次执行 `open -na "$CODEX_BUNDLE" --args --remote-debugging-address=127.0.0.1 --remote-debugging-port="$PORT"`；随后等待 `/json/version`/CDP endpoint，再由 Node injector 验证 renderer、注入主题并提交 active state。项目 README 明确这是非官方、外部 loopback CDP 注入，不改 `.app`/`app.asar`。这证明公开实现采用“wrapper 启动 + CDP”，不证明当前生产实例已有 renderer target。
@@ -19,8 +19,8 @@
 
 ## 本机已验证
 
-1. 运行进程：`/Applications/ChatGPT.app/Contents/MacOS/ChatGPT`（PID 96117）；命令行未见 `--remote-debugging-port` 或 `--remote-debugging-pipe`。
-2. `lsof -nP -a -p 96117 -iTCP -sTCP:LISTEN` 无输出；当前没有可直接连接的 CDP TCP listener。
+1. 当次官方桌面 App 进程的命令行未见 `--remote-debugging-port` 或 `--remote-debugging-pipe`；精确本机路径和 PID 已脱敏。
+2. 当次进程无 TCP listener；当前没有可直接连接的 CDP TCP listener。
 3. 当前 App 日志：`Launching app ... allowDevtools=false allowInspectElement=false buildFlavor=prod packaged=true`。
 4. Bundle gate：`allowDevtools(e){ return isInternal(e) }`；internal flavor 仅 Dev、Agent、Nightly、InternalAlpha。Prod/PublicBeta 不开放。
 5. 主窗口 `webPreferences.devTools` 直接取 `allowDevtools`；View 菜单中的 Electron `toggleDevTools` 同样受该 gate 控制。
@@ -48,7 +48,7 @@
 目标：先证明 renderer target 出现，再验证最小只读 DOM；不推断 React/store 为权威状态。
 
 1. 退出当前 Codex/ChatGPT App；复制当前用户数据到临时目录，设置临时 `CODEX_HOME`，选随机高位 loopback 端口（记录端口、bundle 路径、版本）。不要复用生产 profile，避免第二实例锁。
-2. 以 wrapper 方式启动：`/usr/bin/open -na <bundle> --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=<port>`；循环请求 `http://127.0.0.1:<port>/json/version` 和 `/json/list`，每 250 ms、最长 60 s，保存原始 JSONL 响应。
+2. 以 wrapper 方式启动：`/usr/bin/open -na <bundle> --args --remote-debugging-address=127.0.0.1 --remote-debugging-port=<port>`；循环请求 `http://127.0.0.1:<port>/json/version` 和 `/json/list`，每 250 ms、最长 60 s，只保存脱敏的 endpoint 成功/target-count 事实，绝不保留原始响应。
 3. 判定分层：`/json/version` 成功 = browser endpoint；`/json/list` 出现 `type="page"` 且含 `webSocketDebuggerUrl` = renderer target；仅在第二层成立时，CDP attach 后调用 `Runtime.evaluate('document.readyState')` 与 `DOM.getDocument`，只记录 title/url/节点计数，不注入脚本。
 4. 若持续 0 target，记录完整启动日志、PID/命令行、端口监听和 profile 路径，标记“endpoint-only / target 未证实”；排查启动过早、第二实例锁、页面尚未创建、bundle gate，不得以 browser endpoint 推断 UI 可读。
 5. 实验结束关闭临时 App、确认端口释放并删除临时 profile；生产 App 保持原启动方式。只有拿到 renderer target 后，另行设计白名单 DOM/Runtime fixture，禁止默认 Network/Fetch 监听。
@@ -88,3 +88,11 @@
 CDP 不进入 MVP 主链。它只能作为显式“重启后实验模式”：wrapper 启动 Codex 时开放随机 loopback port，拿到 renderer target 后只订阅白名单 Runtime/DOM 事件。不能用于已经按 Prod 启动的实例；不能默认暴露固定端口；不能把 DOM/store 推断成权威业务状态。
 
 当前功能缺口已由 App activity log + SQLite thread index 补齐：无需 CDP 即可恢复当前 GUI view 对应的真实 thread。因此本阶段不再继续尝试重签、复制 App、绕过 single-instance lock 或注入主 renderer。
+
+## Re-verification: 2026-07-26 renderer + electronBridge
+
+A later live probe on App `26.721.41059` confirmed that an isolated second instance
+started with `--remote-debugging-port` (prod flavor, no `BUILD_FLAVOR=dev`) exposes a page target
+and `window.electronBridge.sendMessageFromView`. `BUILD_FLAVOR=dev` reached the browser endpoint
+but failed at `bootstrap-import-main` with zero page targets. Full notes:
+[codex-cdp-electron-bridge-2026-07-26.md](./codex-cdp-electron-bridge-2026-07-26.md).

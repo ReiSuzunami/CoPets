@@ -29,6 +29,7 @@
     terminalKey,
   } from "./lib/conversation-display.js";
   import { normalizeControlAnswers, prepareFollowUp, visibleAnswer } from "./lib/control-input.js";
+  import { shouldShowFollowUp } from "./lib/follow-up-visibility.js";
   import { createPetCatalogController } from "./lib/pet-catalog-controller.js";
   import { synchronizePetSelection } from "./lib/pet-catalog.js";
   import { createPetPresentation } from "./lib/pet-presentation.js";
@@ -36,7 +37,18 @@
   import { createMotionPreference } from "./lib/motion-preference.js";
   import { isTerminalState, labelForState } from "./lib/pet.js";
   import { PixiPet } from "./lib/pixi-pet.js";
-  import { ONBOARDING_KEY, SELECTED_PET_KEY, WINDOW_STATE_KEY } from "./lib/storage-keys.js";
+  import {
+    CDP_CUSTOM_PORT_KEY,
+    CDP_PORT_MODE_KEY,
+    ONBOARDING_KEY,
+    SELECTED_PET_KEY,
+    WINDOW_STATE_KEY,
+  } from "./lib/storage-keys.js";
+  import {
+    CDP_PORT_MODE_AUTOMATIC,
+    normalizeCdpPortMode,
+    parseCustomCdpPort,
+  } from "./lib/cdp-bridge-settings.js";
   import {
     centerWindowRect,
     createCornerResizeController,
@@ -69,7 +81,16 @@
   let conversationBubbles = [];
   let bubblesLeaving = false;
   let reducedMotion = false;
-  let control = { canStop: false, canReply: false, notifications: [] };
+  let control = {
+    canStop: false,
+    canReply: false,
+    canStartFollowUp: false,
+    showWorkingFollowUp: false,
+    showReadyFollowUp: false,
+    transport: "ipcOnly",
+    notifications: [],
+  };
+  $: followUpVisible = shouldShowFollowUp(control);
   const ACTION_ERROR_TIMEOUT_MS = 5000;
   let actionError = "";
   const actionErrorMessage = createTransientMessage({
@@ -77,6 +98,8 @@
     onChange: (value) => (actionError = value),
   });
   let submitting = "";
+  let cdpPortMode = normalizeCdpPortMode(localStorage.getItem(CDP_PORT_MODE_KEY));
+  let cdpCustomPort = localStorage.getItem(CDP_CUSTOM_PORT_KEY) || "";
   let controlsOpen = false;
   let followUpOpen = false;
   const petWindow = getCurrentWindow();
@@ -233,6 +256,104 @@
     void synchronizePetSelection(false, id, emitTo).then((error) => {
       if (error) showActionError(error);
     });
+  }
+
+  function setCdpPortMode(mode) {
+    cdpPortMode = normalizeCdpPortMode(mode);
+    localStorage.setItem(CDP_PORT_MODE_KEY, cdpPortMode);
+  }
+
+  function setCdpCustomPort(value) {
+    cdpCustomPort = String(value ?? "").replace(/\D/g, "").slice(0, 5);
+    if (cdpCustomPort) localStorage.setItem(CDP_CUSTOM_PORT_KEY, cdpCustomPort);
+    else localStorage.removeItem(CDP_CUSTOM_PORT_KEY);
+  }
+
+  async function launchCdpBridge() {
+    const customPort = cdpPortMode === CDP_PORT_MODE_AUTOMATIC
+      ? null
+      : parseCustomCdpPort(cdpCustomPort);
+    if (cdpPortMode !== CDP_PORT_MODE_AUTOMATIC && customPort === null) {
+      showActionError("Choose a local port from 1024 to 65535.");
+      return;
+    }
+    submitting = "cdp-bridge";
+    clearActionError();
+    managementNotice = "";
+    try {
+      await invoke("launch_codex_with_cdp", { customPort });
+      managementNotice = "Codex bridge ready for this CoPets session.";
+    } catch (cause) {
+      showActionError(cause);
+    } finally {
+      submitting = "";
+    }
+  }
+
+  async function restartCodexWithBridge() {
+    const customPort = cdpPortMode === CDP_PORT_MODE_AUTOMATIC
+      ? null
+      : parseCustomCdpPort(cdpCustomPort);
+    if (cdpPortMode !== CDP_PORT_MODE_AUTOMATIC && customPort === null) {
+      showActionError("Choose a local port from 1024 to 65535.");
+      return;
+    }
+    const accepted = await confirm(
+      "CoPets will close the current Codex App and reopen it with a local bridge. Active work may be interrupted and unsaved UI state may be lost.",
+      {
+        title: "Restart Codex with bridge?",
+        kind: "warning",
+        okLabel: "Restart Codex",
+        cancelLabel: "Cancel",
+      },
+    );
+    if (!accepted) return;
+    submitting = "cdp-restart";
+    clearActionError();
+    managementNotice = "";
+    try {
+      await invoke("restart_codex_with_cdp", { customPort });
+      managementNotice = "Codex restarted with bridge.";
+    } catch (cause) {
+      showActionError(cause);
+    } finally {
+      submitting = "";
+    }
+  }
+
+  async function connectExistingCdp() {
+    const port = cdpPortMode === CDP_PORT_MODE_AUTOMATIC
+      ? null
+      : parseCustomCdpPort(cdpCustomPort);
+    if (cdpPortMode !== CDP_PORT_MODE_AUTOMATIC && port === null) {
+      showActionError("Enter the local Codex CDP port from 1024 to 65535.");
+      return;
+    }
+    submitting = "cdp-connect";
+    clearActionError();
+    managementNotice = "";
+    try {
+      await invoke("connect_existing_codex_cdp", { port });
+      managementNotice = "Connected to the existing Codex bridge.";
+    } catch (cause) {
+      showActionError(cause);
+    } finally {
+      submitting = "";
+    }
+  }
+
+  async function retryCdpVerification() {
+    submitting = "cdp-verify";
+    clearActionError();
+    managementNotice = "";
+    try {
+      await invoke("retry_cdp_bridge");
+      managementNotice = "Codex bridge ready for this CoPets session.";
+    } catch (cause) {
+      showActionError(cause);
+    } finally {
+      submitting = "";
+    }
   }
 
   async function refreshPets(preferredId = "", options = {}) {
@@ -684,7 +805,7 @@
       if (disposed) return;
       unlistenControl = await retainUnlisten(listen("control-state", ({ payload }) => {
         control = payload;
-        if (!payload.canReply) {
+        if (!shouldShowFollowUp(payload)) {
           followUpOpen = false;
           followUp = "";
         }
@@ -876,6 +997,9 @@
       {managementNotice}
       {actionError}
       {submitting}
+      cdpTransport={control.transport || "ipcOnly"}
+      {cdpPortMode}
+      {cdpCustomPort}
       onClose={closeSettings}
       onCompleteOnboarding={completeOnboarding}
       onSelectPet={selectPet}
@@ -887,17 +1011,35 @@
       onOpenPetsFolder={openPetsFolder}
       onRemoveSelectedPet={removeSelectedPet}
       onResetWindowPlacement={resetWindowPlacement}
+      onCdpPortModeChange={setCdpPortMode}
+      onCdpCustomPortChange={setCdpCustomPort}
+      onLaunchCdpBridge={launchCdpBridge}
+      onRestartCodexWithBridge={restartCodexWithBridge}
+      onConnectExistingCdp={connectExistingCdp}
+      onRetryCdpVerification={retryCdpVerification}
     />
   {/if}
 
   <div class="pet-controls">
-    {#if control.canReply}
+    {#if followUpVisible}
       <button
         class="control-orb reply-orb"
         type="button"
         disabled={submitting === "follow-up"}
-        aria-label="Steer current Codex task"
-        title="Steer current task"
+        aria-label={control.canReply
+          ? "Steer current Codex task"
+          : control.canStartFollowUp
+          ? "Continue ready Codex task"
+            : control.showWorkingFollowUp
+              ? "Steer current Codex task while its owner reconnects"
+              : "Continue ready Codex task while its owner reconnects"}
+        title={control.canReply
+          ? "Steer current task"
+          : control.canStartFollowUp
+            ? "Start next turn"
+            : control.showWorkingFollowUp
+              ? "Working task; waiting for Codex owner"
+              : "Ready task; waiting for Codex owner"}
         on:click={openFollowUp}
       >↗</button>
     {/if}

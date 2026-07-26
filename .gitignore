@@ -3,6 +3,7 @@ dist/
 src-tauri/target/
 .claude-bridge/
 .impeccable/
+.cursor/
 tmp/
 **/__pycache__/
 *.py[cod]
@@ -11,6 +12,9 @@ tmp/
 # under src-tauri/icons/ or the documented pet-package fixtures.
 artifacts/
 design/
+
+# Local research screenshot retained outside the public source candidate.
+docs/assets/readme/deskpal-runtime.png
 
 .DS_Store
 *.log

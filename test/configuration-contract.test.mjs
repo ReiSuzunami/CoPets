@@ -77,6 +77,10 @@ test("build commands and release targets use the supported pipeline", () => {
     "npm test && npm run docs:check && npm run audit:public && cargo check --manifest-path src-tauri/Cargo.toml --locked",
   );
   assert.equal(
+    packageConfig.scripts.test,
+    "node --test test/*.test.mjs && npm run frontend:build",
+  );
+  assert.equal(
     packageConfig.scripts["check:all"],
     "npm run check && cargo fmt --manifest-path src-tauri/Cargo.toml --all -- --check && npm run test:rust && npm run test:atlas",
   );

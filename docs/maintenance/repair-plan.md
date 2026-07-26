@@ -17,9 +17,9 @@ the [feature catalog](../features/catalog.md) and executable source.
 ## Starting baseline
 
 - Clean public baseline: commit `9297734` on `main`.
-- Full pre-repair local backup: commit `e303fbd` on
-  `backup/pre-repair-20260720-225354`; this branch must never be pushed because it contains ignored
-  local generation evidence.
+- Full pre-repair local backup: commit `e303fbd` retained locally under
+  `refs/private/pre-repair-20260720-225354`; it is deliberately outside normal branch refs because
+  it contains ignored local generation evidence and must never be pushed or mirrored.
 - At plan start, `npm run check` passed with 59 Node/UI tests, the frontend production build,
   documentation validation, and `cargo check`.
 - At plan start, `cargo test --manifest-path src-tauri/Cargo.toml` passed 54 Rust tests.

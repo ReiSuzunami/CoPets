@@ -2,19 +2,18 @@
 
 ## Supported versions
 
-CoPets has published a private `v0.1.0` prerelease for trusted testing. Security fixes target that
-prerelease and the latest revision of `main`; older snapshots and other local development builds
-are unsupported. No notarized public release has been published.
+CoPets publishes `v0.1.0` as a public prerelease for testing. Security fixes target that prerelease
+and the latest revision of `main`; older snapshots and other local development builds are
+unsupported. No notarized release has been published.
 
 ## Report a vulnerability
 
 Do not disclose a vulnerability, private Codex payload, prompt, log, credential, or stable user
 identifier in a public issue.
 
-Before this repository is published, maintainers must enable a private vulnerability-reporting
-channel. Once the repository exposes private vulnerability reporting, use its **Security** page and
-choose **Report a vulnerability**. If that option is unavailable, contact a maintainer privately
-through an existing trusted channel instead of opening a public report.
+Use this repository's **Security** page and choose **Report a vulnerability**. GitHub keeps that
+report private to maintainers. Do not open a public issue for a vulnerability. If the reporting
+form is temporarily unavailable, contact a maintainer through an existing trusted channel instead.
 
 Include:
 
@@ -29,10 +28,12 @@ release-time guarantee exists before the first public release.
 
 ## Security boundary
 
-CoPets is a local macOS sidecar for an already-running Codex App. It has no network listener and
-treats processes already running under the same macOS UID as inside its local trust boundary. The
-runtime architecture and dated security research describe the exact source-validation, privacy,
-and private-interface limits:
+CoPets is a local macOS companion for the official Codex App. Normal observation attaches to an
+already-running App. The optional experimental bridge can launch, restart, or connect one verified
+same-user App; that App may expose a dynamically chosen IPv4 loopback debugging endpoint. CoPets
+does not expose a listener or accept remote endpoints. Processes already running under the same
+macOS UID remain inside the local trust boundary. The runtime architecture and dated security
+research describe the exact source-validation, privacy, and private-interface limits:
 
 - [Runtime privacy boundary](docs/architecture/runtime.md#privacy-boundary)
 - [Security and legal boundary](docs/research/security-and-legal-boundary.md)

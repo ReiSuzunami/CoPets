@@ -3,7 +3,7 @@
 > Status: Normative
 > Owns: Change impact, documentation discipline, compatibility verification, versioning, and release gates
 > Update when: Development workflow, required checks, version policy, or release process changes
-> Last verified: 2026-07-25
+> Last verified: 2026-07-26
 
 ## Rule: one fact, one owner
 
@@ -31,6 +31,7 @@ Research rules:
 | Rust dependencies/features | Architecture if module capability changes | `cargo check`, `cargo test` |
 | Observation adapters or lifecycle reducer | Runtime architecture, multi-session rules, feature catalog, research snapshot if external behavior changed | Node observer tests, Rust observer tests, live probes |
 | Control models/routing | Runtime architecture, feature catalog, compatibility research when method shapes change | Rust control/observer tests and selected-task live test |
+| CoPets CDP launch, user-confirmed restart, or existing local attachment | CDP channel contract, ADR, runtime/multi-session rules, feature catalog, user guide, changelog, and dated local endpoint research | Rust CDP/control/observer tests, frontend build, and C0a/C0r/C0e/C2/C2b product gates on the pinned App |
 | Tauri commands/events/window/CSP | Runtime architecture and feature catalog | frontend build, Rust tests, packaged-app smoke test |
 | Svelte/Pixi behavior | Feature catalog; architecture only when ownership/interface changes | relevant Node tests, frontend build, visual verification |
 | Pet manifest, validation, or atlas rows | Pet package contract and feature catalog | Rust pet tests, renderer tests, atlas QA/provenance check |
@@ -80,7 +81,7 @@ npm run build:macos:signed -- --bundles app
 codesign --verify --deep --strict "src-tauri/target/release/bundle/macos/CoPets.app"
 ```
 
-Use a running Codex App and cover at least: selected working task, background working task, terminal transition, IPC disconnect/reconnect, and an explicit control when the change touches those paths. Record sanitized evidence; never commit live conversation content.
+Use a running Codex App and cover at least: selected working task, background working task, switch away and back to a retained task, terminal transition, IPC disconnect/reconnect, stale-owner follow refresh (including a same-owner reissued state snapshot when supported), and an explicit control when the change touches those paths. Record sanitized evidence; never commit live conversation content.
 
 For installer, bundle, icon, or DMG changes, also run:
 

@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
   "assetLicense": "MIT",
-  "licenseNotice": "These packaged atlas files are contributed by CoPets contributors and distributed under the repository MIT License.",
+  "licenseNotice": "A CoPets contributor designated these packaged atlas files for distribution under the repository MIT License.",
+  "rightsStatement": "Contributor-provided MIT designation. This provenance records the generation and build route; it is not independent copyright clearance.",
   "generation": {
-    "method": "built-in image generation",
+    "method": "project image-generation workflow",
     "runStartedAt": "2026-07-22T15:53:26.701731Z",
     "mirroredStates": [
       "running-left"

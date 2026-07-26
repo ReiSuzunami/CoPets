@@ -57,6 +57,13 @@ impl AppendCursor {
     }
 
     pub(crate) fn read_appended(&mut self, path: &Path) -> std::io::Result<Vec<String>> {
+        self.read_appended_with_reset(path).map(|(lines, _)| lines)
+    }
+
+    pub(crate) fn read_appended_with_reset(
+        &mut self,
+        path: &Path,
+    ) -> std::io::Result<(Vec<String>, bool)> {
         let mut file = open_owned_regular(path)?;
         let metadata = file.metadata()?;
         let size = metadata.len();
@@ -67,7 +74,8 @@ impl AppendCursor {
             && size == self.offset
             && modified.is_some()
             && self.modified != modified;
-        if identity_changed || size < self.offset || same_size_rewrite {
+        let reset = identity_changed || size < self.offset || same_size_rewrite;
+        if reset {
             self.reset();
         }
 
@@ -80,7 +88,7 @@ impl AppendCursor {
         self.identity = identity;
         self.modified = modified;
         if size == self.offset {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), reset));
         }
 
         file.seek(SeekFrom::Start(self.offset))?;
@@ -111,7 +119,7 @@ impl AppendCursor {
         if consumed > 0 {
             self.carry.drain(..consumed);
         }
-        Ok(lines)
+        Ok((lines, reset))
     }
 }
 

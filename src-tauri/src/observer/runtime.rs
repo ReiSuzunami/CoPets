@@ -3,9 +3,14 @@ use std::collections::{HashMap, HashSet};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
-use crate::control::{ControlNotification, ControlSnapshot, ControlTarget, PendingControl};
+use crate::{
+    cdp::ControlTransport,
+    control::{ControlNotification, ControlSnapshot, ControlTarget, PendingControl},
+};
 
 const SUMMARY_LIMIT: usize = 120;
+
+pub(super) const OWNER_MISSING_MESSAGE: &str = "The selected Codex task has no owner";
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,9 +98,14 @@ pub(super) struct RuntimeState {
     pub(super) selected: Option<String>,
     pub(super) threads: HashMap<String, ThreadRecord>,
     pub(super) snapshot: RuntimeSnapshot,
-    pub(super) follow_up_inflight: HashSet<String>,
+    pub(super) follow_up_inflight: HashMap<String, u64>,
+    pub(super) follow_up_next_token: u64,
     pub(super) dismissed: HashSet<String>,
     pub(super) ipc_connected: bool,
+    pub(super) control_transport: ControlTransport,
+    pub(super) cdp_port: Option<u16>,
+    pub(super) cdp_process_id: Option<u32>,
+    pub(super) transport_generation: u64,
 }
 
 pub(super) struct ThreadControl {
@@ -119,10 +129,61 @@ pub(super) fn turn_is_live(state: &RuntimeState, thread: &str) -> bool {
     })
 }
 
+pub(super) fn turn_is_ready_for_follow_up(state: &RuntimeState, thread: &str) -> bool {
+    state.threads.get(thread).is_some_and(|record| {
+        record.lifecycle.terminal && record.lifecycle.state.as_deref() == Some("completed")
+    })
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum TargetRefreshPhase {
+    Pending,
+    AwaitingSnapshot,
+}
+
 #[derive(Clone)]
 pub(super) struct TargetRefresh {
     pub(super) stale_owner_client_id: String,
     pub(super) host_id: String,
+    pub(super) phase: TargetRefreshPhase,
+}
+
+pub(super) fn arm_target_refresh(
+    state: &mut RuntimeState,
+    thread: &str,
+    stale_target: &ControlTarget,
+) -> Result<(), String> {
+    if state.selected.as_deref() != Some(thread) {
+        return Err("The selected Codex task changed while reconnecting".to_owned());
+    }
+    let record = state
+        .threads
+        .get_mut(thread)
+        .ok_or_else(|| "The selected Codex task changed while reconnecting".to_owned())?;
+    let target_is_fresh = record.control.as_ref().is_some_and(|control| {
+        !control.stale
+            && control.target.conversation_id == stale_target.conversation_id
+            && control.target.host_id == stale_target.host_id
+    });
+    let target_is_stale = record.control.as_ref().is_some_and(|control| {
+        control.stale
+            && control.target.conversation_id == stale_target.conversation_id
+            && control.target.owner_client_id == stale_target.owner_client_id
+            && control.target.host_id == stale_target.host_id
+    });
+    let Some(refresh) = record.target_refresh.as_mut() else {
+        return target_is_fresh
+            .then_some(())
+            .ok_or_else(|| "The selected Codex task changed while reconnecting".to_owned());
+    };
+    if refresh.stale_owner_client_id != stale_target.owner_client_id
+        || stale_target.host_id.as_deref() != Some(refresh.host_id.as_str())
+        || !target_is_stale
+    {
+        return Err("The selected Codex task changed while reconnecting".to_owned());
+    }
+    refresh.phase = TargetRefreshPhase::AwaitingSnapshot;
+    Ok(())
 }
 
 pub(super) enum RuntimeEvent {
@@ -141,6 +202,14 @@ pub(super) enum RuntimeEvent {
     },
     IpcConnectivity {
         connected: bool,
+    },
+    ControlTransport {
+        transport: ControlTransport,
+        port: Option<u16>,
+        process_id: Option<u32>,
+    },
+    CdpProcessExited {
+        process_id: u32,
     },
 }
 
@@ -217,6 +286,39 @@ impl RuntimeState {
             RuntimeEvent::IpcConnectivity { connected } => {
                 self.ipc_connected = connected;
                 (false, true)
+            }
+            RuntimeEvent::ControlTransport {
+                transport,
+                port,
+                process_id,
+            } => {
+                let cdp_ready = transport == ControlTransport::CdpReady
+                    && port.is_some()
+                    && process_id.is_some();
+                self.cdp_port = cdp_ready.then_some(port).flatten();
+                self.cdp_process_id = if transport == ControlTransport::IpcOnly {
+                    None
+                } else {
+                    process_id
+                };
+                self.control_transport = if transport == ControlTransport::CdpReady && !cdp_ready {
+                    ControlTransport::CdpDegraded
+                } else {
+                    transport
+                };
+                self.transport_generation = self.transport_generation.wrapping_add(1);
+                (false, true)
+            }
+            RuntimeEvent::CdpProcessExited { process_id } => {
+                if self.cdp_process_id != Some(process_id) {
+                    (false, false)
+                } else {
+                    self.cdp_port = None;
+                    self.cdp_process_id = None;
+                    self.control_transport = ControlTransport::CdpDegraded;
+                    self.transport_generation = self.transport_generation.wrapping_add(1);
+                    (false, true)
+                }
             }
         };
 
@@ -321,10 +423,27 @@ pub(super) fn build_runtime_snapshot(state: &RuntimeState) -> RuntimeSnapshot {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(super) enum ActionKind<'a> {
     Stop,
     Steer,
+    StartFollowUp,
     Respond(&'a str),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum FollowUpKind {
+    Steer,
+    Start,
+}
+
+#[derive(Clone)]
+pub(super) struct FollowUpDispatchGuard {
+    pub(super) thread: String,
+    pub(super) target: ControlTarget,
+    pub(super) kind: FollowUpKind,
+    pub(super) transport: ControlTransport,
+    pub(super) transport_generation: u64,
 }
 
 pub(super) struct AuthorizedAction {
@@ -341,8 +460,20 @@ pub(super) fn authorize_action(
         .selected
         .as_ref()
         .ok_or_else(|| "No controllable Codex task is selected".to_owned())?;
-    if !turn_is_live(state, thread) {
-        return Err("The selected Codex task is not running".to_owned());
+    let allowed_lifecycle = match kind {
+        ActionKind::StartFollowUp => turn_is_ready_for_follow_up(state, thread),
+        ActionKind::Stop | ActionKind::Steer | ActionKind::Respond(_) => {
+            turn_is_live(state, thread)
+        }
+    };
+    if !allowed_lifecycle {
+        return Err(match kind {
+            ActionKind::StartFollowUp => "The selected Codex task is not ready for a follow-up",
+            ActionKind::Stop | ActionKind::Steer | ActionKind::Respond(_) => {
+                "The selected Codex task is not running"
+            }
+        }
+        .to_owned());
     }
     if !state.ipc_connected {
         return Err("The selected Codex task is reconnecting".to_owned());
@@ -351,7 +482,7 @@ pub(super) fn authorize_action(
         .threads
         .get(thread)
         .and_then(|record| record.control.as_ref())
-        .ok_or_else(|| "The selected Codex task has no owner".to_owned())?;
+        .ok_or_else(|| OWNER_MISSING_MESSAGE.to_owned())?;
     if control.stale {
         return Err("The selected Codex task is reconnecting".to_owned());
     }
@@ -363,7 +494,7 @@ pub(super) fn authorize_action(
                 .cloned()
                 .ok_or_else(|| "This request is no longer pending".to_owned())?,
         ),
-        ActionKind::Stop | ActionKind::Steer => None,
+        ActionKind::Stop | ActionKind::Steer | ActionKind::StartFollowUp => None,
     };
     Ok(AuthorizedAction {
         thread: thread.clone(),
@@ -372,15 +503,131 @@ pub(super) fn authorize_action(
     })
 }
 
+pub(super) fn authorize_follow_up(
+    state: &RuntimeState,
+) -> Result<(AuthorizedAction, FollowUpKind), String> {
+    if state.control_transport == ControlTransport::CdpReady {
+        return authorize_cdp_follow_up(state);
+    }
+    let thread = state
+        .selected
+        .as_deref()
+        .ok_or_else(|| "No controllable Codex task is selected".to_owned())?;
+    let kind = if turn_is_live(state, thread) {
+        FollowUpKind::Steer
+    } else if turn_is_ready_for_follow_up(state, thread) {
+        FollowUpKind::Start
+    } else {
+        return Err("The selected Codex task cannot accept a follow-up".to_owned());
+    };
+    let action = match kind {
+        FollowUpKind::Steer => ActionKind::Steer,
+        FollowUpKind::Start => ActionKind::StartFollowUp,
+    };
+    Ok((authorize_action(state, action)?, kind))
+}
+
+/// Final native-only check immediately before an IPC follow-up is placed on
+/// the IPC writer queue. The worker repeats this check immediately before it
+/// writes the frame, so a selection, owner, lifecycle, connection, or
+/// transport change cannot redirect a previously authorized follow-up.
+pub(super) fn authorize_ipc_follow_up_dispatch(
+    state: &RuntimeState,
+    guard: &FollowUpDispatchGuard,
+) -> Result<(), String> {
+    if guard.transport == ControlTransport::CdpReady
+        || state.control_transport != guard.transport
+        || state.transport_generation != guard.transport_generation
+    {
+        return Err("The selected Codex task changed before this follow-up could send".to_owned());
+    }
+    let (authorized, kind) = authorize_follow_up(state).map_err(|_| {
+        "The selected Codex task changed before this follow-up could send".to_owned()
+    })?;
+    if kind != guard.kind || authorized.thread != guard.thread || authorized.target != guard.target
+    {
+        return Err("The selected Codex task changed before this follow-up could send".to_owned());
+    }
+    Ok(())
+}
+
+pub(super) fn authorize_cdp_follow_up(
+    state: &RuntimeState,
+) -> Result<(AuthorizedAction, FollowUpKind), String> {
+    if state.control_transport != ControlTransport::CdpReady
+        || state.cdp_port.is_none()
+        || state.cdp_process_id.is_none()
+    {
+        return Err("The CoPets bridge is unavailable".to_owned());
+    }
+    let thread = state
+        .selected
+        .as_ref()
+        .ok_or_else(|| "No controllable Codex task is selected".to_owned())?;
+    let kind = if turn_is_live(state, thread) {
+        FollowUpKind::Steer
+    } else if turn_is_ready_for_follow_up(state, thread) {
+        FollowUpKind::Start
+    } else {
+        return Err("The selected Codex task cannot accept a follow-up".to_owned());
+    };
+    let target = state
+        .threads
+        .get(thread)
+        .and_then(|record| record.control.as_ref())
+        .map(|control| control.target.clone())
+        .ok_or_else(|| OWNER_MISSING_MESSAGE.to_owned())?;
+    if target.conversation_id.trim().is_empty()
+        || target
+            .cwd
+            .as_deref()
+            .is_none_or(|cwd| cwd.trim().is_empty())
+        || target
+            .host_id
+            .as_deref()
+            .is_none_or(|host| host.trim().is_empty())
+    {
+        return Err("The selected Codex task is missing bridge target details".to_owned());
+    }
+    Ok((
+        AuthorizedAction {
+            thread: thread.clone(),
+            target,
+            pending: None,
+        },
+        kind,
+    ))
+}
+
 pub(super) fn control_snapshot(state: &RuntimeState) -> ControlSnapshot {
     let can_stop = authorize_action(state, ActionKind::Stop).is_ok();
-    let can_reply = authorize_action(state, ActionKind::Steer).is_ok();
+    let can_ipc_reply = authorize_action(state, ActionKind::Steer).is_ok();
+    let can_ipc_start_follow_up = authorize_action(state, ActionKind::StartFollowUp).is_ok();
+    let cdp_follow_up = (state.control_transport == ControlTransport::CdpReady)
+        .then(|| authorize_cdp_follow_up(state).ok())
+        .flatten();
+    let can_reply = can_ipc_reply
+        || cdp_follow_up
+            .as_ref()
+            .is_some_and(|(_, kind)| *kind == FollowUpKind::Steer);
+    let can_start_follow_up = can_ipc_start_follow_up
+        || cdp_follow_up
+            .as_ref()
+            .is_some_and(|(_, kind)| *kind == FollowUpKind::Start);
+    let show_working_follow_up = state
+        .selected
+        .as_deref()
+        .is_some_and(|thread| turn_is_live(state, thread));
+    let show_ready_follow_up = state
+        .selected
+        .as_deref()
+        .is_some_and(|thread| turn_is_ready_for_follow_up(state, thread));
     let notifications = state
         .selected
         .as_ref()
         .and_then(|thread| state.threads.get(thread))
         .and_then(|record| record.control.as_ref())
-        .filter(|_| can_reply)
+        .filter(|_| can_ipc_reply)
         .map(|control| {
             control
                 .notifications
@@ -393,6 +640,10 @@ pub(super) fn control_snapshot(state: &RuntimeState) -> ControlSnapshot {
     ControlSnapshot {
         can_stop,
         can_reply,
+        can_start_follow_up,
+        show_working_follow_up,
+        show_ready_follow_up,
+        transport: state.control_transport,
         notifications,
     }
 }
@@ -427,7 +678,8 @@ pub(super) fn snapshot_can_refresh_target(
     host_id: Option<&str>,
 ) -> bool {
     refresh.is_none_or(|refresh| {
-        source_client_id != refresh.stale_owner_client_id
-            && host_id == Some(refresh.host_id.as_str())
+        host_id == Some(refresh.host_id.as_str())
+            && (source_client_id != refresh.stale_owner_client_id
+                || refresh.phase == TargetRefreshPhase::AwaitingSnapshot)
     })
 }

@@ -3,8 +3,8 @@
   "purpose": "CoPets application, installer, README, and DMG identity",
   "format": "PNG, 640x640 RGBA with transparent background",
   "sha256": "3631d2f0e3d3ebedbfa89b7bcb6a64cead1ceff9a593b5347f5cd7580fbb8d22",
-  "ownership": "Project-owned artwork confirmed by the repository owner",
-  "license": "MIT with the repository",
+  "rightsStatement": "Repository-maintainer assertion: this project identity artwork is contributed for distribution under the repository MIT License. This record is not independent copyright clearance.",
+  "license": "MIT (repository license)",
   "confirmed": "2026-07-25",
-  "derivatives": "Generated with `tauri icon` under src-tauri/icons/"
+  "derivatives": "Generated with `tauri icon` under src-tauri/icons/; this record covers the original PNG and those icon derivatives."
 }
