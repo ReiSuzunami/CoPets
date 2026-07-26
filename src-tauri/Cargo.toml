@@ -1,6 +1,6 @@
 [package]
 name = "copets"
-version = "0.1.0"
+version = "0.2.0"
 description = "A warm macOS desktop companion for Codex"
 authors = ["CoPets contributors"]
 edition = "2024"

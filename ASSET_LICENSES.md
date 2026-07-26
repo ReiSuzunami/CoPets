@@ -18,7 +18,6 @@ right to redistribute them.
 | --- | --- | --- | --- |
 | CoPets cloud identity | `docs/assets/brand/copets-cloud.png`, `src-tauri/icons/*` | [`copets-cloud.provenance.json`](docs/assets/brand/copets-cloud.provenance.json) | Repository-maintainer MIT contribution assertion; icons are generated derivatives of the cloud artwork. |
 | Sunflower example pet | `examples/pets/sunflower/*` | [`provenance.json`](examples/pets/sunflower/provenance.json) | Contributor-designated MIT example package; generation/build facts and hashes are recorded. |
-| Sunflower Gloves example pet | `examples/pets/sunflower-gloves/*` | [`provenance.json`](examples/pets/sunflower-gloves/provenance.json) | Contributor-designated MIT example package; generation/build facts and hashes are recorded. |
 
 The examples are installable source packages, not automatically installed application content.
 

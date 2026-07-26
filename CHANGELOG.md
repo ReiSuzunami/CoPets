@@ -2,9 +2,11 @@
 
 Notable user-visible changes are recorded here. The project follows Semantic Versioning and the release rules in [`docs/maintenance/updating.md`](docs/maintenance/updating.md).
 
-The current public prerelease is `v0.1.0`. No notarized release has been published.
+The current public testing prerelease is `v0.2.0`. It is development-signed and not notarized.
 
 ## Unreleased
+
+## [0.2.0] - 2026-07-26
 
 - Added **Restart Codex with bridge** to the compact experimental Settings disclosure. It requires a
   warning confirmation, then accepts exactly one same-user normal official Codex App, revalidates it
@@ -57,6 +59,7 @@ The current public prerelease is `v0.1.0`. No notarized release has been publish
 
 ### Removed
 
+- Removed the Sunflower Gloves example package. Standard Sunflower remains the sole installable source example.
 - Withdrawn the experimental cloned-Codex Resume Lab. CoPets now pairs only with the unmodified
   official Codex App and never sends a private resume request or patches a Codex bundle.
 

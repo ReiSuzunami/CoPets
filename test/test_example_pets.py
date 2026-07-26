@@ -13,7 +13,7 @@ EXAMPLES = ROOT / "examples" / "pets"
 class ExamplePetTests(unittest.TestCase):
     def test_example_packages_match_their_public_provenance(self):
         packages = sorted(path for path in EXAMPLES.iterdir() if path.is_dir())
-        self.assertEqual([path.name for path in packages], ["sunflower", "sunflower-gloves"])
+        self.assertEqual([path.name for path in packages], ["sunflower"])
 
         for package in packages:
             with self.subTest(package=package.name):

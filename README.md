@@ -36,7 +36,7 @@ Download the universal DMG and its checksum from
 folder, then verify the current release:
 
 ```bash
-shasum -a 256 -c CoPets-v0.1.0-macos-universal.dmg.sha256
+shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
 ```
 
 Open the DMG and double-click **Install CoPets**. The same installer can safely upgrade CoPets or

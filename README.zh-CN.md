@@ -32,7 +32,7 @@ CoPets 完全在本机运行，不代理模型流量、不修改 Codex 界面，
 及其校验文件。把两个文件放在同一目录，然后校验当前版本：
 
 ```bash
-shasum -a 256 -c CoPets-v0.1.0-macos-universal.dmg.sha256
+shasum -a 256 -c CoPets-v0.2.0-macos-universal.dmg.sha256
 ```
 
 打开 DMG，双击 **Install CoPets**。同一个安装器也能安全升级 CoPets，或将已有安装移到废纸篓。
